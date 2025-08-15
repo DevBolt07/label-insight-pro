@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { HealthScoreCard } from "@/components/ui/health-score-card";
 import { IngredientAlertCard, IngredientAlert } from "@/components/ui/ingredient-alert";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -76,10 +77,26 @@ const mockAlternatives = [
 
 export function Results({ onNavigate, data }: ResultsProps) {
   const [alerts, setAlerts] = useState(mockAlerts);
+  const [loading, setLoading] = useState(false);
 
   const handleDismissAlert = (id: string) => {
     setAlerts(prev => prev.filter(alert => alert.id !== id));
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <MobileHeader 
+          title="Analysis Results"
+          showBack
+          onBack={() => onNavigate("home")}
+        />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <LoadingSpinner variant="analysis" size="lg" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -101,60 +118,63 @@ export function Results({ onNavigate, data }: ResultsProps) {
 
       <div className="px-4 py-6 max-w-md mx-auto space-y-6">
         {/* Product Info */}
-        <Card className="card-material overflow-hidden">
-          <div className="aspect-video bg-gradient-to-br from-muted/30 to-muted/10 flex items-center justify-center">
+        <Card className="card-material overflow-hidden animate-fade-in">
+          <div className="aspect-[4/3] bg-gradient-to-br from-muted/30 to-muted/10 flex items-center justify-center relative overflow-hidden">
             {data?.image ? (
               <img src={data.image} alt="Product" className="w-full h-full object-cover" />
             ) : (
-              <div className="text-center text-muted-foreground">
-                <div className="text-6xl mb-2">🥤</div>
-                <p>Product Image</p>
-              </div>
+              <img 
+                src="https://images.unsplash.com/photo-1570197788417-0e82375c9371?w=400&h=300&fit=crop" 
+                alt="Energy Drink Sample" 
+                className="w-full h-full object-cover"
+              />
             )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
           </div>
-          <div className="p-4">
-            <h2 className="text-headline-medium text-foreground mb-2">
+          <div className="p-5">
+            <h2 className="text-headline-medium text-foreground font-semibold mb-3">
               {data?.productName || "Energy Drink Sample"}
             </h2>
-            <div className="flex gap-2">
-              <Badge variant="outline">Beverage</Badge>
-              <Badge variant="outline">High Sugar</Badge>
-              <Badge variant="secondary">Scanned</Badge>
+            <div className="flex gap-2 flex-wrap">
+              <Badge variant="outline" className="rounded-full">Beverage</Badge>
+              <Badge variant="outline" className="rounded-full text-warning border-warning/50">High Sugar</Badge>
+              <Badge variant="secondary" className="rounded-full">Scanned</Badge>
             </div>
           </div>
         </Card>
 
         {/* Health Scores */}
-        <div className="grid gap-4">
+        <div className="grid gap-4 animate-slide-up animate-stagger-1">
           <HealthScoreCard
             score={34}
             grade="D"
             title="Nutri-Score"
             description="Overall nutritional quality"
+            className="animate-scale-in"
           />
           
-          <Card className="card-material p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-title-large text-foreground">Health Impact Forecast</h3>
-              <Badge variant="outline" className="bg-gradient-warning text-warning-foreground">
+          <Card className="card-material p-5 animate-scale-in animate-stagger-2">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-title-large text-foreground font-semibold">Health Impact Forecast</h3>
+              <Badge variant="outline" className="bg-gradient-warning text-warning-foreground rounded-full">
                 Moderate Risk
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground mb-3">
+            <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
               Regular consumption (daily) may increase risk of:
             </p>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>Type 2 Diabetes</span>
-                <span className="text-warning">+15%</span>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center p-2 rounded-lg bg-warning/5">
+                <span className="font-medium">Type 2 Diabetes</span>
+                <span className="text-warning font-semibold">+15%</span>
               </div>
-              <div className="flex justify-between">
-                <span>Dental Issues</span>
-                <span className="text-warning">+22%</span>
+              <div className="flex justify-between items-center p-2 rounded-lg bg-warning/5">
+                <span className="font-medium">Dental Issues</span>
+                <span className="text-warning font-semibold">+22%</span>
               </div>
-              <div className="flex justify-between">
-                <span>Weight Gain</span>
-                <span className="text-danger">+8%</span>
+              <div className="flex justify-between items-center p-2 rounded-lg bg-danger/5">
+                <span className="font-medium">Weight Gain</span>
+                <span className="text-danger font-semibold">+8%</span>
               </div>
             </div>
           </Card>

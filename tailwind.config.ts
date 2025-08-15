@@ -93,7 +93,7 @@ export default {
 				'danger': 'var(--shadow-danger)'
 			},
 			fontFamily: {
-				sans: ['Roboto', 'system-ui', 'sans-serif']
+				sans: ['Inter', 'system-ui', 'sans-serif']
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

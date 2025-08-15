@@ -21,7 +21,7 @@ export function MobileHeader({
 }: MobileHeaderProps) {
   return (
     <header className={cn(
-      "sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+      "sticky top-0 z-50 w-full border-b border-border/50 bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80 shadow-material-sm",
       className
     )}>
       <div className="flex h-16 items-center justify-between px-4 max-w-md mx-auto">
