@@ -2,41 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* NutriLabel Analyzer Design System - Material Design 3 + Health Focus
+All colors MUST be HSL. Focus on health, safety, and nutrition.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Material Design 3 Surface Colors */
+    --background: 245 245 250;
+    --foreground: 210 40% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Health-focused Primary - Fresh Green */
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 142 71% 85%;
+    --primary-glow: 142 71% 65%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Material Secondary - Harmonious Blue-Green */
+    --secondary: 158 64% 52%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Neutral Grays */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Health Accent - Vibrant Teal */
+    --accent: 174 100% 29%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Health Status Colors */
+    --healthy: 142 71% 45%;
+    --healthy-foreground: 0 0% 100%;
+    
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 100%;
+    
+    --danger: 0 84% 60%;
+    --danger-foreground: 0 0% 100%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* UI Elements */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 142 71% 45%;
 
-    --radius: 0.5rem;
+    /* Border Radius - Material Design 3 */
+    --radius: 12px;
 
     --sidebar-background: 0 0% 98%;
 
@@ -55,42 +74,97 @@ All colors MUST be HSL.
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
+    /* Material Design Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-healthy: linear-gradient(135deg, hsl(var(--healthy)), hsl(142 71% 55%));
+    --gradient-warning: linear-gradient(135deg, hsl(var(--warning)), hsl(45 93% 57%));
+    --gradient-danger: linear-gradient(135deg, hsl(var(--danger)), hsl(0 84% 70%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 14% 98%));
+    
+    /* Material Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(var(--primary) / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(var(--primary) / 0.1), 0 2px 4px -1px hsl(var(--primary) / 0.06);
+    --shadow-lg: 0 10px 15px -3px hsl(var(--primary) / 0.1), 0 4px 6px -2px hsl(var(--primary) / 0.05);
+    --shadow-health: 0 8px 25px -8px hsl(var(--healthy) / 0.3);
+    --shadow-warning: 0 8px 25px -8px hsl(var(--warning) / 0.3);
+    --shadow-danger: 0 8px 25px -8px hsl(var(--danger) / 0.3);
+
+    /* Material Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    
+    /* Sidebar Design System */
+    --sidebar-background: 245 245 250;
+    --sidebar-foreground: 210 40% 15%;
+    --sidebar-primary: 142 71% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 210 40% 15%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 142 71% 45%;
+  }
+
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 210 40% 7%;
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 210 40% 10%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 210 40% 10%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 142 71% 55%;
+    --primary-foreground: 210 40% 7%;
+    --primary-light: 142 71% 25%;
+    --primary-glow: 142 71% 45%;
 
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 158 64% 42%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 210 40% 15%;
+    --muted-foreground: 215 20.2% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 174 100% 39%;
+    --accent-foreground: 210 40% 7%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --healthy: 142 71% 55%;
+    --healthy-foreground: 210 40% 7%;
+    
+    --warning: 45 93% 57%;
+    --warning-foreground: 210 40% 7%;
+    
+    --danger: 0 84% 70%;
+    --danger-foreground: 210 40% 7%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --destructive: 0 84% 70%;
+    --destructive-foreground: 210 40% 7%;
+
+    --border: 210 40% 15%;
+    --input: 210 40% 15%;
+    --ring: 142 71% 55%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-healthy: linear-gradient(135deg, hsl(var(--healthy)), hsl(142 71% 45%));
+    --gradient-warning: linear-gradient(135deg, hsl(var(--warning)), hsl(45 93% 47%));
+    --gradient-danger: linear-gradient(135deg, hsl(var(--danger)), hsl(0 84% 60%));
+    --gradient-card: linear-gradient(145deg, hsl(210 40% 10%), hsl(210 40% 8%));
+
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.15);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.2), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.2), 0 4px 6px -2px hsl(0 0% 0% / 0.1);
+    --shadow-health: 0 8px 25px -8px hsl(var(--healthy) / 0.4);
+    --shadow-warning: 0 8px 25px -8px hsl(var(--warning) / 0.4);
+    --shadow-danger: 0 8px 25px -8px hsl(var(--danger) / 0.4);
+
+    --sidebar-background: 210 40% 7%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 142 71% 55%;
+    --sidebar-primary-foreground: 210 40% 7%;
+    --sidebar-accent: 210 40% 15%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 210 40% 15%;
+    --sidebar-ring: 142 71% 55%;
   }
 }
 
@@ -101,5 +175,74 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Material Design Typography */
+  .text-display-large {
+    @apply text-4xl font-normal tracking-tight;
+  }
+  
+  .text-headline-large {
+    @apply text-3xl font-normal tracking-tight;
+  }
+  
+  .text-headline-medium {
+    @apply text-2xl font-normal tracking-tight;
+  }
+  
+  .text-title-large {
+    @apply text-xl font-medium tracking-tight;
+  }
+  
+  .text-body-large {
+    @apply text-base font-normal leading-relaxed;
+  }
+  
+  .text-label-large {
+    @apply text-sm font-medium tracking-wide;
+  }
+
+  /* Material Design Animations */
+  .animate-ripple {
+    @apply transition-all duration-300 ease-out;
+  }
+  
+  .animate-bounce-gentle {
+    animation: bounce-gentle 0.6s ease-out;
+  }
+  
+  @keyframes bounce-gentle {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-4px); }
+  }
+
+  /* Material Design Cards */
+  .card-material {
+    background: var(--gradient-card);
+    box-shadow: var(--shadow-md);
+    @apply rounded-3xl border border-border/50 transition-all duration-300;
+  }
+  
+  .card-material:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  /* Health Status Indicators */
+  .status-healthy {
+    background: var(--gradient-healthy);
+    box-shadow: var(--shadow-health);
+  }
+  
+  .status-warning {
+    background: var(--gradient-warning);
+    box-shadow: var(--shadow-warning);
+  }
+  
+  .status-danger {
+    background: var(--gradient-danger);
+    box-shadow: var(--shadow-danger);
   }
 }
