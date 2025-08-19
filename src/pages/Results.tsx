@@ -9,10 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProductData } from "@/services/openFoodFacts";
 
 interface ResultsProps {
   onNavigate: (page: string) => void;
-  data?: any;
+  data?: {
+    productData?: ProductData;
+    scanned?: boolean;
+  };
 }
 
 const mockIngredients = [
@@ -76,12 +80,82 @@ const mockAlternatives = [
 ];
 
 export function Results({ onNavigate, data }: ResultsProps) {
-  const [alerts, setAlerts] = useState(mockAlerts);
+  const productData = data?.productData;
+  
+  // Generate alerts from product data
+  const generateAlertsFromProduct = (product: ProductData): IngredientAlert[] => {
+    const alerts: IngredientAlert[] = [];
+    
+    if (product.healthWarnings) {
+      product.healthWarnings.forEach((warning, index) => {
+        let severity: 'low' | 'medium' | 'high' = 'medium';
+        
+        if (warning.toLowerCase().includes('high')) severity = 'high';
+        if (warning.toLowerCase().includes('ultra-processed')) severity = 'high';
+        if (warning.toLowerCase().includes('poor')) severity = 'high';
+        if (warning.toLowerCase().includes('additives')) severity = 'low';
+        
+        alerts.push({
+          id: `warning-${index}`,
+          ingredient: warning,
+          reason: `This product ${warning.toLowerCase()}. Consider limiting consumption.`,
+          severity,
+          userProfile: []
+        });
+      });
+    }
+    
+    return alerts;
+  };
+
+  const [alerts, setAlerts] = useState<IngredientAlert[]>(
+    productData ? generateAlertsFromProduct(productData) : []
+  );
   const [loading, setLoading] = useState(false);
+
+  // Calculate health score based on Nutri-Score and other factors
+  const calculateHealthScore = (product: ProductData): number => {
+    let score = 50; // Base score
+    
+    switch (product.nutriscore?.toLowerCase()) {
+      case 'a': score = 90; break;
+      case 'b': score = 70; break;
+      case 'c': score = 50; break;
+      case 'd': score = 30; break;
+      case 'e': score = 10; break;
+    }
+    
+    // Adjust based on NOVA group
+    if (product.nova_group === 4) score -= 20;
+    if (product.nova_group === 1) score += 10;
+    
+    // Adjust based on health warnings
+    score -= (product.healthWarnings?.length || 0) * 5;
+    
+    return Math.max(0, Math.min(100, score));
+  };
+
+  const healthScore = productData ? calculateHealthScore(productData) : 34;
+  
+  // Get grade from score
+  const getGradeFromScore = (score: number): "A" | "B" | "C" | "D" | "E" => {
+    if (score >= 80) return 'A';
+    if (score >= 60) return 'B';
+    if (score >= 40) return 'C';
+    if (score >= 20) return 'D';
+    return 'E';
+  };
+
+  const healthGrade = getGradeFromScore(healthScore);
 
   const handleDismissAlert = (id: string) => {
     setAlerts(prev => prev.filter(alert => alert.id !== id));
   };
+
+  // Parse ingredients into array
+  const ingredientsList = productData?.ingredients ? 
+    productData.ingredients.split(',').map(i => i.trim()).filter(i => i.length > 0) : 
+    [];
 
   if (loading) {
     return (
@@ -120,25 +194,48 @@ export function Results({ onNavigate, data }: ResultsProps) {
         {/* Product Info */}
         <Card className="card-material overflow-hidden animate-fade-in">
           <div className="aspect-[4/3] bg-gradient-to-br from-muted/30 to-muted/10 flex items-center justify-center relative overflow-hidden">
-            {data?.image ? (
-              <img src={data.image} alt="Product" className="w-full h-full object-cover" />
+            {productData?.image ? (
+              <img src={productData.image} alt="Product" className="w-full h-full object-cover" />
             ) : (
               <img 
                 src="https://images.unsplash.com/photo-1570197788417-0e82375c9371?w=400&h=300&fit=crop" 
-                alt="Energy Drink Sample" 
+                alt="Product Sample" 
                 className="w-full h-full object-cover"
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
           </div>
           <div className="p-5">
-            <h2 className="text-headline-medium text-foreground font-semibold mb-3">
-              {data?.productName || "Energy Drink Sample"}
+            <h2 className="text-headline-medium text-foreground font-semibold mb-2">
+              {productData?.name || "Unknown Product"}
             </h2>
+            {productData?.brand && (
+              <p className="text-body-medium text-muted-foreground mb-3">
+                by {productData.brand}
+              </p>
+            )}
             <div className="flex gap-2 flex-wrap">
-              <Badge variant="outline" className="rounded-full">Beverage</Badge>
-              <Badge variant="outline" className="rounded-full text-warning border-warning/50">High Sugar</Badge>
-              <Badge variant="secondary" className="rounded-full">Scanned</Badge>
+              {productData?.categories && (
+                <Badge variant="outline" className="rounded-full">
+                  {productData.categories.split(',')[0]}
+                </Badge>
+              )}
+              {productData?.nutriscore && (
+                <Badge 
+                  variant={productData.nutriscore === 'A' || productData.nutriscore === 'B' ? 'default' : 'destructive'} 
+                  className="rounded-full"
+                >
+                  Nutri-Score {productData.nutriscore}
+                </Badge>
+              )}
+              {productData?.nova_group === 4 && (
+                <Badge variant="outline" className="rounded-full text-warning border-warning/50">
+                  Ultra-Processed
+                </Badge>
+              )}
+              {data?.scanned && (
+                <Badge variant="secondary" className="rounded-full">Scanned</Badge>
+              )}
             </div>
           </div>
         </Card>
@@ -146,38 +243,68 @@ export function Results({ onNavigate, data }: ResultsProps) {
         {/* Health Scores */}
         <div className="grid gap-4 animate-slide-up animate-stagger-1">
           <HealthScoreCard
-            score={34}
-            grade="D"
-            title="Nutri-Score"
-            description="Overall nutritional quality"
+            score={healthScore}
+            grade={healthGrade}
+            title="Health Score"
+            description="Based on nutritional quality and processing level"
             className="animate-scale-in"
           />
           
-          <Card className="card-material p-5 animate-scale-in animate-stagger-2">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-title-large text-foreground font-semibold">Health Impact Forecast</h3>
-              <Badge variant="outline" className="bg-gradient-warning text-warning-foreground rounded-full">
-                Moderate Risk
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-              Regular consumption (daily) may increase risk of:
-            </p>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center p-2 rounded-lg bg-warning/5">
-                <span className="font-medium">Type 2 Diabetes</span>
-                <span className="text-warning font-semibold">+15%</span>
+          {productData?.nutritionFacts && (
+            <Card className="card-material p-5 animate-scale-in animate-stagger-2">
+              <h3 className="text-title-large text-foreground font-semibold mb-4">Nutrition Facts (per 100g)</h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {productData.nutritionFacts.energy && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Energy</span>
+                    <span className="font-medium">{Math.round(productData.nutritionFacts.energy)} kJ</span>
+                  </div>
+                )}
+                {productData.nutritionFacts.fat !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Fat</span>
+                    <span className="font-medium">{productData.nutritionFacts.fat.toFixed(1)}g</span>
+                  </div>
+                )}
+                {productData.nutritionFacts.saturatedFat !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Saturated Fat</span>
+                    <span className="font-medium">{productData.nutritionFacts.saturatedFat.toFixed(1)}g</span>
+                  </div>
+                )}
+                {productData.nutritionFacts.carbs !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Carbs</span>
+                    <span className="font-medium">{productData.nutritionFacts.carbs.toFixed(1)}g</span>
+                  </div>
+                )}
+                {productData.nutritionFacts.sugars !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Sugars</span>
+                    <span className="font-medium">{productData.nutritionFacts.sugars.toFixed(1)}g</span>
+                  </div>
+                )}
+                {productData.nutritionFacts.protein !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Protein</span>
+                    <span className="font-medium">{productData.nutritionFacts.protein.toFixed(1)}g</span>
+                  </div>
+                )}
+                {productData.nutritionFacts.salt !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Salt</span>
+                    <span className="font-medium">{productData.nutritionFacts.salt.toFixed(2)}g</span>
+                  </div>
+                )}
+                {productData.nutritionFacts.fiber !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Fiber</span>
+                    <span className="font-medium">{productData.nutritionFacts.fiber.toFixed(1)}g</span>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between items-center p-2 rounded-lg bg-warning/5">
-                <span className="font-medium">Dental Issues</span>
-                <span className="text-warning font-semibold">+22%</span>
-              </div>
-              <div className="flex justify-between items-center p-2 rounded-lg bg-danger/5">
-                <span className="font-medium">Weight Gain</span>
-                <span className="text-danger font-semibold">+8%</span>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          )}
         </div>
 
         {/* Detailed Analysis */}
@@ -222,13 +349,52 @@ export function Results({ onNavigate, data }: ResultsProps) {
             <Card className="card-material">
               <div className="p-6 space-y-3">
                 <h3 className="text-title-large text-foreground">Ingredients List</h3>
-                <div className="flex flex-wrap gap-2">
-                  {mockIngredients.map((ingredient, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      {ingredient}
-                    </Badge>
-                  ))}
-                </div>
+                {ingredientsList.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {ingredientsList.map((ingredient, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {ingredient}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No ingredients information available
+                  </p>
+                )}
+                
+                {/* Allergens */}
+                {productData?.allergens && productData.allergens.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-foreground mb-2">Allergens</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {productData.allergens.map((allergen, index) => (
+                        <Badge key={index} variant="destructive" className="text-xs">
+                          {allergen}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Additives */}
+                {productData?.additives && productData.additives.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-foreground mb-2">Additives</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {productData.additives.slice(0, 5).map((additive, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {additive}
+                        </Badge>
+                      ))}
+                      {productData.additives.length > 5 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{productData.additives.length - 5} more
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           </TabsContent>

@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Camera, Upload, Scan, Image, Zap, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BarcodeScanner } from "@/components/barcode-scanner";
+import { openFoodFactsService } from "@/services/openFoodFacts";
+import { BarcodeScanResult } from "@/hooks/useBarcodeScanner";
+import { useToast } from "@/hooks/use-toast";
 
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
@@ -12,7 +16,9 @@ interface ScannerProps {
 export function Scanner({ onNavigate }: ScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [scanMode, setScanMode] = useState<"camera" | "upload" | "barcode">("camera");
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -44,17 +50,43 @@ export function Scanner({ onNavigate }: ScannerProps) {
     }, 3000);
   };
 
-  const handleBarcodeScane = () => {
+  const handleBarcodeScanne = () => {
+    setShowBarcodeScanner(true);
+  };
+
+  const handleBarcodeScanResult = async (result: BarcodeScanResult) => {
+    setShowBarcodeScanner(false);
     setIsScanning(true);
-    // Simulate barcode scanning
-    setTimeout(() => {
+
+    try {
+      const productData = await openFoodFactsService.getProductByBarcode(result.code);
+      
       setIsScanning(false);
-      onNavigate("results", {
-        productName: "Barcode Product",
-        barcode: "1234567890123",
-        scanned: true
+      
+      if (productData) {
+        onNavigate("results", {
+          productData,
+          scanned: true
+        });
+      } else {
+        toast({
+          title: "Product Not Found",
+          description: `No product found for barcode: ${result.code}`,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      setIsScanning(false);
+      toast({
+        title: "Scan Error",
+        description: "Failed to fetch product information. Please try again.",
+        variant: "destructive"
       });
-    }, 2000);
+    }
+  };
+
+  const handleBarcodeScannerClose = () => {
+    setShowBarcodeScanner(false);
   };
 
   const scanOptions = [
@@ -79,7 +111,7 @@ export function Scanner({ onNavigate }: ScannerProps) {
       icon: Scan,
       title: "Barcode Scanner",
       description: "Scan product barcode",
-      action: handleBarcodeScane,
+      action: handleBarcodeScanne,
       gradient: "bg-gradient-warning"
     }
   ];
@@ -205,6 +237,14 @@ export function Scanner({ onNavigate }: ScannerProps) {
           onChange={handleFileUpload}
           className="hidden"
         />
+
+        {/* Barcode Scanner Modal */}
+        {showBarcodeScanner && (
+          <BarcodeScanner
+            onScanSuccess={handleBarcodeScanResult}
+            onClose={handleBarcodeScannerClose}
+          />
+        )}
       </div>
     </div>
   );
