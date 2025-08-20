@@ -1,3 +1,5 @@
+import { productCacheStorage, scanHistoryStorage } from '@/utils/storage';
+
 export interface OpenFoodFactsProduct {
   code: string;
   product: {
@@ -41,6 +43,7 @@ export interface ProductData {
   name: string;
   brand?: string;
   image?: string;
+  imageUrl?: string;
   categories?: string;
   ingredients?: string;
   nutriscore?: string;
@@ -59,6 +62,8 @@ export interface ProductData {
   };
   healthWarnings?: string[];
   isHealthy?: boolean;
+  healthScore?: number;
+  grade?: string;
 }
 
 class OpenFoodFactsService {
@@ -66,6 +71,13 @@ class OpenFoodFactsService {
 
   async getProductByBarcode(barcode: string): Promise<ProductData | null> {
     try {
+      // Check cache first
+      const cachedProduct = productCacheStorage.get(barcode);
+      if (cachedProduct) {
+        console.log('Using cached product data for:', barcode);
+        return cachedProduct;
+      }
+
       const response = await fetch(`${this.baseUrl}/product/${barcode}.json`);
       const data: OpenFoodFactsProduct = await response.json();
 
@@ -73,7 +85,21 @@ class OpenFoodFactsService {
         return null;
       }
 
-      return this.transformProduct(data);
+      const productData = this.transformProduct(data);
+      
+      // Cache the product data
+      productCacheStorage.set(barcode, productData);
+      
+      // Add to scan history
+      scanHistoryStorage.add({
+        barcode,
+        productName: productData.name,
+        healthScore: productData.healthScore,
+        grade: productData.grade,
+        imageUrl: productData.imageUrl
+      });
+
+      return productData;
     } catch (error) {
       console.error('Error fetching product from Open Food Facts:', error);
       throw new Error('Failed to fetch product data');
@@ -101,12 +127,19 @@ class OpenFoodFactsService {
     
     // Determine if product is generally healthy
     const isHealthy = this.assessHealthiness(product);
+    
+    // Calculate health score (0-100)
+    const healthScore = this.calculateHealthScore(product);
+    
+    // Get grade from health score
+    const grade = this.getGradeFromScore(healthScore);
 
     return {
       barcode: data.code,
       name,
       brand: product.brands,
       image: product.image_front_url || product.image_url,
+      imageUrl: product.image_front_url || product.image_url,
       categories: product.categories,
       ingredients,
       nutriscore: product.nutriscore_grade?.toUpperCase(),
@@ -124,7 +157,9 @@ class OpenFoodFactsService {
         salt: product.nutriments?.salt_100g || (product.nutriments?.sodium_100g ? product.nutriments.sodium_100g * 2.5 : undefined)
       },
       healthWarnings,
-      isHealthy
+      isHealthy,
+      healthScore,
+      grade
     };
   }
 
@@ -196,6 +231,47 @@ class OpenFoodFactsService {
     }
     
     return healthScore >= 3;
+  }
+
+  private calculateHealthScore(product: any): number {
+    let score = 50; // Base score
+    
+    // Nutri-Score impact (±30 points)
+    if (product.nutriscore_grade) {
+      const nutriGrade = product.nutriscore_grade.toLowerCase();
+      switch (nutriGrade) {
+        case 'a': score += 30; break;
+        case 'b': score += 15; break;
+        case 'c': score += 0; break;
+        case 'd': score -= 15; break;
+        case 'e': score -= 30; break;
+      }
+    }
+    
+    // NOVA group impact (±20 points)
+    if (product.nova_group) {
+      switch (product.nova_group) {
+        case 1: score += 20; break;
+        case 2: score += 10; break;
+        case 3: score -= 10; break;
+        case 4: score -= 20; break;
+      }
+    }
+    
+    // Health warnings impact (-5 points each)
+    const warnings = this.calculateHealthWarnings(product);
+    score -= warnings.length * 5;
+    
+    // Ensure score is between 0-100
+    return Math.max(0, Math.min(100, score));
+  }
+
+  private getGradeFromScore(score: number): string {
+    if (score >= 85) return 'A';
+    if (score >= 70) return 'B';
+    if (score >= 55) return 'C';
+    if (score >= 40) return 'D';
+    return 'E';
   }
 }
 

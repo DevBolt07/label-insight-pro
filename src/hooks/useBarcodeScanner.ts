@@ -9,8 +9,13 @@ export interface BarcodeScanResult {
 export function useBarcodeScanner() {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraIndex, setSelectedCameraIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const codeReader = useRef<BrowserMultiFormatReader | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   
   const startScanning = useCallback(async (
     onSuccess: (result: BarcodeScanResult) => void
@@ -34,13 +39,38 @@ export function useBarcodeScanner() {
         throw new Error('No camera found');
       }
 
-      // Prefer back camera if available
-      const selectedDevice = videoInputDevices.find(device => 
-        device.label.toLowerCase().includes('back') || 
-        device.label.toLowerCase().includes('rear')
-      ) || videoInputDevices[0];
+      setCameras(videoInputDevices);
 
-      // Start scanning
+      // Select camera (prefer back camera on first launch)
+      const selectedDevice = selectedCameraIndex < videoInputDevices.length 
+        ? videoInputDevices[selectedCameraIndex]
+        : videoInputDevices.find(device => 
+            device.label.toLowerCase().includes('back') || 
+            device.label.toLowerCase().includes('rear')
+          ) || videoInputDevices[0];
+
+      // Start scanning with enhanced constraints
+      const constraints: MediaStreamConstraints = {
+        video: {
+          deviceId: selectedDevice.deviceId,
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: selectedDevice.label.toLowerCase().includes('back') ? 'environment' : 'user'
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      // Check torch support
+      const track = stream.getVideoTracks()[0];
+      const capabilities = track.getCapabilities();
+      setTorchSupported('torch' in capabilities);
+
       await codeReader.current.decodeFromVideoDevice(
         selectedDevice.deviceId,
         videoRef.current,
@@ -63,12 +93,44 @@ export function useBarcodeScanner() {
     }
   }, []);
 
+  const toggleTorch = useCallback(async () => {
+    if (!torchSupported || !streamRef.current) return;
+
+    try {
+      const track = streamRef.current.getVideoTracks()[0];
+      await track.applyConstraints({
+        advanced: [{ torch: !torchOn } as any]
+      });
+      setTorchOn(!torchOn);
+    } catch (error) {
+      console.warn('Failed to toggle torch:', error);
+    }
+  }, [torchSupported, torchOn]);
+
+  const switchCamera = useCallback(() => {
+    if (cameras.length <= 1) return;
+    
+    const nextIndex = (selectedCameraIndex + 1) % cameras.length;
+    setSelectedCameraIndex(nextIndex);
+    
+    // Restart scanning with new camera
+    if (isScanning) {
+      stopScanning();
+      // Will restart automatically due to dependency change
+    }
+  }, [cameras.length, selectedCameraIndex, isScanning]);
+
   const stopScanning = useCallback(() => {
     if (codeReader.current) {
       codeReader.current.reset();
     }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
     setIsScanning(false);
     setError(null);
+    setTorchOn(false);
   }, []);
 
   return {
@@ -76,6 +138,12 @@ export function useBarcodeScanner() {
     error,
     videoRef,
     startScanning,
-    stopScanning
+    stopScanning,
+    torchSupported,
+    torchOn,
+    toggleTorch,
+    cameras,
+    selectedCameraIndex,
+    switchCamera
   };
 }
