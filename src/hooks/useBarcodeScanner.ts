@@ -12,7 +12,7 @@ export function useBarcodeScanner() {
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
-  const [selectedCameraIndex, setSelectedCameraIndex] = useState(0);
+  const [selectedCameraIndex, setSelectedCameraIndex] = useState(-1); // -1 means not initialized
   const videoRef = useRef<HTMLVideoElement>(null);
   const codeReader = useRef<BrowserMultiFormatReader | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -42,12 +42,31 @@ export function useBarcodeScanner() {
       setCameras(videoInputDevices);
 
       // Select camera (prefer back camera on first launch)
-      const selectedDevice = selectedCameraIndex < videoInputDevices.length 
-        ? videoInputDevices[selectedCameraIndex]
-        : videoInputDevices.find(device => 
-            device.label.toLowerCase().includes('back') || 
-            device.label.toLowerCase().includes('rear')
-          ) || videoInputDevices[0];
+      let selectedDevice: MediaDeviceInfo;
+      let deviceIndex: number;
+
+      if (selectedCameraIndex >= 0 && selectedCameraIndex < videoInputDevices.length) {
+        // Use previously selected camera
+        selectedDevice = videoInputDevices[selectedCameraIndex];
+        deviceIndex = selectedCameraIndex;
+      } else {
+        // First launch - prefer back camera
+        const backCameraIndex = videoInputDevices.findIndex(device => 
+          device.label.toLowerCase().includes('back') || 
+          device.label.toLowerCase().includes('rear') ||
+          device.label.toLowerCase().includes('environment')
+        );
+        
+        if (backCameraIndex >= 0) {
+          selectedDevice = videoInputDevices[backCameraIndex];
+          deviceIndex = backCameraIndex;
+        } else {
+          selectedDevice = videoInputDevices[0];
+          deviceIndex = 0;
+        }
+        
+        setSelectedCameraIndex(deviceIndex);
+      }
 
       // Start scanning with enhanced constraints
       const constraints: MediaStreamConstraints = {
@@ -91,7 +110,7 @@ export function useBarcodeScanner() {
       setError(err instanceof Error ? err.message : 'Failed to start camera');
       setIsScanning(false);
     }
-  }, []);
+  }, [selectedCameraIndex]);
 
   const toggleTorch = useCallback(async () => {
     if (!torchSupported || !streamRef.current) return;
@@ -113,12 +132,9 @@ export function useBarcodeScanner() {
     const nextIndex = (selectedCameraIndex + 1) % cameras.length;
     setSelectedCameraIndex(nextIndex);
     
-    // Restart scanning with new camera
-    if (isScanning) {
-      stopScanning();
-      // Will restart automatically due to dependency change
-    }
-  }, [cameras.length, selectedCameraIndex, isScanning]);
+    // The scanning will restart automatically due to the selectedCameraIndex dependency
+    // in the startScanning useCallback
+  }, [cameras.length, selectedCameraIndex]);
 
   const stopScanning = useCallback(() => {
     if (codeReader.current) {
