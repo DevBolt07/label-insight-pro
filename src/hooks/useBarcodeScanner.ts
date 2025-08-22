@@ -42,8 +42,7 @@ export function useBarcodeScanner() {
 
       setCameras(videoInputDevices);
 
-      // Select camera: prefer back/environment; reuse user selection only when explicitly switched
-      let selectedDevice: MediaDeviceInfo;
+      // Always prefer back camera for scanning, unless user explicitly switched
       let deviceIndex = -1;
 
       const lower = (s: string) => s.toLowerCase();
@@ -56,6 +55,7 @@ export function useBarcodeScanner() {
         return label.includes('front') || label.includes('user') || label.includes('selfie');
       });
 
+      // Use back camera by default, unless user switched cameras in current session
       if (!alwaysPreferBack && selectedCameraIndex >= 0 && selectedCameraIndex < videoInputDevices.length) {
         deviceIndex = selectedCameraIndex;
       } else if (backIndex >= 0) {
@@ -63,13 +63,16 @@ export function useBarcodeScanner() {
       } else if (frontIndex >= 0) {
         deviceIndex = frontIndex;
       } else {
-        deviceIndex = 0; // fallback to first available
+        deviceIndex = 0;
       }
 
-      selectedDevice = videoInputDevices[deviceIndex];
+      const selectedDevice = videoInputDevices[deviceIndex];
       const isBackCamera = backIndex >= 0 && deviceIndex === backIndex;
 
-      setSelectedCameraIndex(deviceIndex);
+      // Only update selectedCameraIndex if it's different to avoid restart loops
+      if (selectedCameraIndex !== deviceIndex) {
+        setSelectedCameraIndex(deviceIndex);
+      }
 
       // Optimized constraints for mobile barcode scanning
       const constraints: MediaStreamConstraints = {
@@ -113,7 +116,7 @@ export function useBarcodeScanner() {
       setError(err instanceof Error ? err.message : 'Failed to start camera');
       setIsScanning(false);
     }
-  }, [selectedCameraIndex]);
+  }, []);
 
   const toggleTorch = useCallback(async () => {
     if (!torchSupported || !streamRef.current) return;
