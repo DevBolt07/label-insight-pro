@@ -13,6 +13,7 @@ export function useBarcodeScanner() {
   const [torchOn, setTorchOn] = useState(false);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCameraIndex, setSelectedCameraIndex] = useState(-1); // -1 means not initialized
+  const [alwaysPreferBack, setAlwaysPreferBack] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const codeReader = useRef<BrowserMultiFormatReader | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -41,48 +42,34 @@ export function useBarcodeScanner() {
 
       setCameras(videoInputDevices);
 
-      // Select camera (always prefer back/environment camera for mobile scanning)
+      // Select camera: prefer back/environment; reuse user selection only when explicitly switched
       let selectedDevice: MediaDeviceInfo;
-      let deviceIndex: number;
-      let isBackCamera = false;
+      let deviceIndex = -1;
 
-      if (selectedCameraIndex >= 0 && selectedCameraIndex < videoInputDevices.length) {
-        // Use previously selected camera
-        selectedDevice = videoInputDevices[selectedCameraIndex];
+      const lower = (s: string) => s.toLowerCase();
+      const backIndex = videoInputDevices.findIndex(d => {
+        const label = lower(d.label);
+        return label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('main');
+      });
+      const frontIndex = videoInputDevices.findIndex(d => {
+        const label = lower(d.label);
+        return label.includes('front') || label.includes('user') || label.includes('selfie');
+      });
+
+      if (!alwaysPreferBack && selectedCameraIndex >= 0 && selectedCameraIndex < videoInputDevices.length) {
         deviceIndex = selectedCameraIndex;
+      } else if (backIndex >= 0) {
+        deviceIndex = backIndex;
+      } else if (frontIndex >= 0) {
+        deviceIndex = frontIndex;
       } else {
-        // First launch - find back camera for optimal mobile scanning
-        const backCameraIndex = videoInputDevices.findIndex(device => {
-          const label = device.label.toLowerCase();
-          return label.includes('back') || 
-                 label.includes('rear') ||
-                 label.includes('environment') ||
-                 label.includes('main') ||
-                 (label.includes('camera') && label.includes('0')); // Android often names back camera as camera 0
-        });
-        
-        if (backCameraIndex >= 0) {
-          selectedDevice = videoInputDevices[backCameraIndex];
-          deviceIndex = backCameraIndex;
-          isBackCamera = true;
-        } else {
-          // Fallback to first available camera
-          selectedDevice = videoInputDevices[0];
-          deviceIndex = 0;
-        }
-        
-        setSelectedCameraIndex(deviceIndex);
+        deviceIndex = 0; // fallback to first available
       }
 
-      // Determine if selected camera is back camera for constraint optimization
-      if (selectedCameraIndex >= 0) {
-        const label = selectedDevice.label.toLowerCase();
-        isBackCamera = label.includes('back') || 
-                      label.includes('rear') ||
-                      label.includes('environment') ||
-                      label.includes('main') ||
-                      (label.includes('camera') && label.includes('0'));
-      }
+      selectedDevice = videoInputDevices[deviceIndex];
+      const isBackCamera = backIndex >= 0 && deviceIndex === backIndex;
+
+      setSelectedCameraIndex(deviceIndex);
 
       // Optimized constraints for mobile barcode scanning
       const constraints: MediaStreamConstraints = {
@@ -144,12 +131,10 @@ export function useBarcodeScanner() {
 
   const switchCamera = useCallback(() => {
     if (cameras.length <= 1) return;
-    
+    setAlwaysPreferBack(false);
     const nextIndex = (selectedCameraIndex + 1) % cameras.length;
     setSelectedCameraIndex(nextIndex);
-    
-    // The scanning will restart automatically due to the selectedCameraIndex dependency
-    // in the startScanning useCallback
+    // Scanning will restart due to the selectedCameraIndex dependency
   }, [cameras.length, selectedCameraIndex]);
 
   const stopScanning = useCallback(() => {
@@ -163,6 +148,8 @@ export function useBarcodeScanner() {
     setIsScanning(false);
     setError(null);
     setTorchOn(false);
+    setAlwaysPreferBack(true);
+    setSelectedCameraIndex(-1);
   }, []);
 
   return {
