@@ -14,7 +14,213 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      favorites: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_reviews: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          rating: number | null
+          review_text: string | null
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          rating?: number | null
+          review_text?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          rating?: number | null
+          review_text?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          additives: string[] | null
+          allergens: string[] | null
+          barcode: string
+          brand: string | null
+          categories: string | null
+          created_at: string
+          grade: string | null
+          health_score: number | null
+          health_warnings: string[] | null
+          id: string
+          image_url: string | null
+          ingredients: string | null
+          is_verified: boolean | null
+          name: string
+          nova_group: number | null
+          nutriscore: string | null
+          nutrition_facts: Json | null
+          updated_at: string
+        }
+        Insert: {
+          additives?: string[] | null
+          allergens?: string[] | null
+          barcode: string
+          brand?: string | null
+          categories?: string | null
+          created_at?: string
+          grade?: string | null
+          health_score?: number | null
+          health_warnings?: string[] | null
+          id?: string
+          image_url?: string | null
+          ingredients?: string | null
+          is_verified?: boolean | null
+          name: string
+          nova_group?: number | null
+          nutriscore?: string | null
+          nutrition_facts?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          additives?: string[] | null
+          allergens?: string[] | null
+          barcode?: string
+          brand?: string | null
+          categories?: string | null
+          created_at?: string
+          grade?: string | null
+          health_score?: number | null
+          health_warnings?: string[] | null
+          id?: string
+          image_url?: string | null
+          ingredients?: string | null
+          is_verified?: boolean | null
+          name?: string
+          nova_group?: number | null
+          nutriscore?: string | null
+          nutrition_facts?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          allergies: string[] | null
+          avatar_url: string | null
+          created_at: string
+          dietary_restrictions: string[] | null
+          display_name: string | null
+          health_conditions: string[] | null
+          id: string
+          nutrition_goals: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allergies?: string[] | null
+          avatar_url?: string | null
+          created_at?: string
+          dietary_restrictions?: string[] | null
+          display_name?: string | null
+          health_conditions?: string[] | null
+          id?: string
+          nutrition_goals?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allergies?: string[] | null
+          avatar_url?: string | null
+          created_at?: string
+          dietary_restrictions?: string[] | null
+          display_name?: string | null
+          health_conditions?: string[] | null
+          id?: string
+          nutrition_goals?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scan_history: {
+        Row: {
+          id: string
+          location: Json | null
+          product_id: string
+          scan_method: string | null
+          scanned_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          location?: Json | null
+          product_id: string
+          scan_method?: string | null
+          scanned_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          location?: Json | null
+          product_id?: string
+          scan_method?: string | null
+          scanned_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
