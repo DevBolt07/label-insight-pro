@@ -11,9 +11,6 @@ export function useBarcodeScanner() {
   const [error, setError] = useState<string | null>(null);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
-  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
-  const [selectedCameraIndex, setSelectedCameraIndex] = useState(-1); // -1 means not initialized
-  const [alwaysPreferBack, setAlwaysPreferBack] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const codeReader = useRef<BrowserMultiFormatReader | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -33,84 +30,85 @@ export function useBarcodeScanner() {
         throw new Error('Video element not available');
       }
 
-      // Get available video input devices
-      const videoInputDevices = await codeReader.current.listVideoInputDevices();
-      
-      if (videoInputDevices.length === 0) {
-        throw new Error('No camera found');
-      }
-
-      setCameras(videoInputDevices);
-
-      // Always prefer back camera for scanning, unless user explicitly switched
-      let deviceIndex = -1;
-
-      const lower = (s: string) => s.toLowerCase();
-      const backIndex = videoInputDevices.findIndex(d => {
-        const label = lower(d.label);
-        return label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('main');
-      });
-      const frontIndex = videoInputDevices.findIndex(d => {
-        const label = lower(d.label);
-        return label.includes('front') || label.includes('user') || label.includes('selfie');
-      });
-
-      // Use back camera by default, unless user switched cameras in current session
-      if (!alwaysPreferBack && selectedCameraIndex >= 0 && selectedCameraIndex < videoInputDevices.length) {
-        deviceIndex = selectedCameraIndex;
-      } else if (backIndex >= 0) {
-        deviceIndex = backIndex;
-      } else if (frontIndex >= 0) {
-        deviceIndex = frontIndex;
-      } else {
-        deviceIndex = 0;
-      }
-
-      const selectedDevice = videoInputDevices[deviceIndex];
-      const isBackCamera = backIndex >= 0 && deviceIndex === backIndex;
-
-      // Only update selectedCameraIndex if it's different to avoid restart loops
-      if (selectedCameraIndex !== deviceIndex) {
-        setSelectedCameraIndex(deviceIndex);
-      }
-
-      // Optimized constraints for mobile barcode scanning
+      // Use facingMode constraint to prefer back camera, with fallback to front
       const constraints: MediaStreamConstraints = {
         video: {
-          deviceId: { exact: selectedDevice.deviceId },
+          facingMode: { ideal: 'environment' }, // Prefer back camera
           width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 },
-          facingMode: isBackCamera ? 'environment' : 'user'
+          height: { ideal: 720, min: 480 }
         }
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = stream;
+      try {
+        // Try back camera first
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        streamRef.current = stream;
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-
-      // Check torch support
-      const track = stream.getVideoTracks()[0];
-      const capabilities = track.getCapabilities();
-      setTorchSupported('torch' in capabilities);
-
-      await codeReader.current.decodeFromVideoDevice(
-        selectedDevice.deviceId,
-        videoRef.current,
-        (result, error) => {
-          if (result) {
-            onSuccess({
-              code: result.getText(),
-              format: result.getBarcodeFormat().toString()
-            });
-            stopScanning();
-          } else if (error && !(error instanceof NotFoundException)) {
-            console.warn('Barcode scanning error:', error);
-          }
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
         }
-      );
+
+        // Check torch support
+        const track = stream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities();
+        setTorchSupported('torch' in capabilities);
+
+        // Use decodeFromConstraints for better compatibility
+        await codeReader.current.decodeFromConstraints(
+          constraints,
+          videoRef.current,
+          (result, error) => {
+            if (result) {
+              onSuccess({
+                code: result.getText(),
+                format: result.getBarcodeFormat().toString()
+              });
+              stopScanning();
+            } else if (error && !(error instanceof NotFoundException)) {
+              console.warn('Barcode scanning error:', error);
+            }
+          }
+        );
+      } catch (backCameraError) {
+        // Fallback to front camera if back camera fails
+        console.warn('Back camera not available, trying front camera:', backCameraError);
+        
+        const frontConstraints: MediaStreamConstraints = {
+          video: {
+            facingMode: 'user', // Front camera
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 }
+          }
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(frontConstraints);
+        streamRef.current = stream;
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+
+        // Check torch support
+        const track = stream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities();
+        setTorchSupported('torch' in capabilities);
+
+        await codeReader.current.decodeFromConstraints(
+          frontConstraints,
+          videoRef.current,
+          (result, error) => {
+            if (result) {
+              onSuccess({
+                code: result.getText(),
+                format: result.getBarcodeFormat().toString()
+              });
+              stopScanning();
+            } else if (error && !(error instanceof NotFoundException)) {
+              console.warn('Barcode scanning error:', error);
+            }
+          }
+        );
+      }
     } catch (err) {
       console.error('Error starting barcode scanner:', err);
       setError(err instanceof Error ? err.message : 'Failed to start camera');
@@ -132,14 +130,6 @@ export function useBarcodeScanner() {
     }
   }, [torchSupported, torchOn]);
 
-  const switchCamera = useCallback(() => {
-    if (cameras.length <= 1) return;
-    setAlwaysPreferBack(false);
-    const nextIndex = (selectedCameraIndex + 1) % cameras.length;
-    setSelectedCameraIndex(nextIndex);
-    // Scanning will restart due to the selectedCameraIndex dependency
-  }, [cameras.length, selectedCameraIndex]);
-
   const stopScanning = useCallback(() => {
     if (codeReader.current) {
       codeReader.current.reset();
@@ -151,8 +141,6 @@ export function useBarcodeScanner() {
     setIsScanning(false);
     setError(null);
     setTorchOn(false);
-    setAlwaysPreferBack(true);
-    setSelectedCameraIndex(-1);
   }, []);
 
   return {
@@ -163,9 +151,6 @@ export function useBarcodeScanner() {
     stopScanning,
     torchSupported,
     torchOn,
-    toggleTorch,
-    cameras,
-    selectedCameraIndex,
-    switchCamera
+    toggleTorch
   };
 }

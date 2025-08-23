@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, Camera, Flashlight, FlashlightOff, RotateCcw, Keyboard, Scan } from "lucide-react";
+import { X, Camera, Flashlight, FlashlightOff, Keyboard, Scan } from "lucide-react";
 import { useBarcodeScanner, BarcodeScanResult } from "@/hooks/useBarcodeScanner";
 import { cn } from "@/lib/utils";
 
@@ -21,9 +21,7 @@ export function BarcodeScanner({ onScanSuccess, onClose, className }: BarcodeSca
     stopScanning,
     torchSupported,
     torchOn,
-    toggleTorch,
-    cameras,
-    switchCamera
+    toggleTorch
   } = useBarcodeScanner();
   
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -90,17 +88,6 @@ export function BarcodeScanner({ onScanSuccess, onClose, className }: BarcodeSca
               className="text-white hover:bg-white/20"
             >
               {torchOn ? <FlashlightOff className="h-4 w-4" /> : <Flashlight className="h-4 w-4" />}
-            </Button>
-          )}
-          
-          {!showManualEntry && cameras.length > 1 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={switchCamera}
-              className="text-white hover:bg-white/20"
-            >
-              <RotateCcw className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -198,7 +185,6 @@ export function BarcodeScanner({ onScanSuccess, onClose, className }: BarcodeSca
               <p className="text-body-large">Hold steady and center the barcode</p>
               <p className="text-body-medium text-white/70">
                 {torchSupported && "Use flashlight in low light • "}
-                {cameras.length > 1 && "Switch cameras • "}
                 Tap keyboard for manual entry
               </p>
             </>
