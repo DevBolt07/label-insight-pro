@@ -1,22 +1,50 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { ProductCard } from "@/components/ui/product-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Camera, Upload, Scan, Shield, Heart, Baby, Settings, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { scanHistoryService } from "@/services/scanHistoryService";
+import { useToast } from "@/hooks/use-toast";
+import type { User } from '@supabase/supabase-js';
 
 interface HomeProps {
   onNavigate: (page: string) => void;
+  user: User;
 }
 
-export function Home({ onNavigate }: HomeProps) {
+export function Home({ onNavigate, user }: HomeProps) {
   const [greeting, setGreeting] = useState(() => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
     if (hour < 17) return "Good afternoon";
     return "Good evening";
   });
+  const [recentScans, setRecentScans] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadRecentScans();
+  }, [user.id]);
+
+  const loadRecentScans = async () => {
+    try {
+      setIsLoading(true);
+      const scans = await scanHistoryService.getRecentScans(user.id, 3);
+      setRecentScans(scans);
+    } catch (error) {
+      console.error('Error loading recent scans:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load recent scans.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const quickActions = [
     {

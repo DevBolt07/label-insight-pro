@@ -9,10 +9,14 @@ import { Profile } from "./pages/Profile";
 import { Scanner } from "./pages/Scanner";
 import { Results } from "./pages/Results";
 import { History } from "./pages/History";
+import { Auth } from "./pages/Auth";
+import { useAuth } from "./hooks/useAuth";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 const queryClient = new QueryClient();
 
 const App = () => {
+  const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState("home");
   const [currentPage, setCurrentPage] = useState("home");
   const [pageData, setPageData] = useState<any>(null);
@@ -36,20 +40,46 @@ const App = () => {
     }
   };
 
+  // Show loading spinner while checking authentication
+  if (loading) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <LoadingSpinner size="lg" />
+          </div>
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  // Show auth page if user is not authenticated
+  if (!user) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Auth onNavigate={handleNavigate} />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
   const renderCurrentPage = () => {
     switch (currentPage) {
       case "home":
-        return <Home onNavigate={handleNavigate} />;
+        return <Home onNavigate={handleNavigate} user={user} />;
       case "profile":
-        return <Profile onNavigate={handleNavigate} />;
+        return <Profile onNavigate={handleNavigate} user={user} />;
       case "scan":
-        return <Scanner onNavigate={handleNavigate} />;
+        return <Scanner onNavigate={handleNavigate} user={user} />;
       case "results":
-        return <Results onNavigate={handleNavigate} data={pageData} />;
+        return <Results onNavigate={handleNavigate} data={pageData} user={user} />;
       case "history":
-        return <History onNavigate={handleNavigate} />;
+        return <History onNavigate={handleNavigate} user={user} />;
       default:
-        return <Home onNavigate={handleNavigate} />;
+        return <Home onNavigate={handleNavigate} user={user} />;
     }
   };
 
