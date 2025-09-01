@@ -12,9 +12,10 @@ interface ProductCardProps {
   category: string;
   score?: number;
   grade?: 'A' | 'B' | 'C' | 'D' | 'E';
-  price?: string;
-  trending?: boolean;
-  onAnalyze: (id: string) => void;
+        price?: string;
+        trending?: boolean;
+        amazonLink?: string;
+        onAnalyze: (id: string) => void;
   className?: string;
 }
 
@@ -28,6 +29,7 @@ export function ProductCard({
   grade,
   price,
   trending,
+  amazonLink,
   onAnalyze,
   className
 }: ProductCardProps) {
@@ -104,6 +106,17 @@ export function ProductCard({
           <Scan className="h-4 w-4 mr-2" />
           Analyze Nutrition
         </Button>
+
+        {/* Amazon Link */}
+        {amazonLink && (
+          <Button 
+            onClick={() => window.open(amazonLink, '_blank')}
+            variant="outline"
+            className="w-full rounded-xl h-10 font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            🛒 Buy on Amazon
+          </Button>
+        )}
       </div>
     </Card>
   );

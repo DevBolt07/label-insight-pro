@@ -13,11 +13,13 @@ import { ProductData } from "@/services/openFoodFacts";
 import { User } from "@supabase/supabase-js";
 
 interface ResultsProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, data?: any) => void;
   user: User;
   data?: {
     productData?: ProductData;
     scanned?: boolean;
+    amazonLink?: string;
+    featured?: boolean;
   };
 }
 
@@ -81,7 +83,7 @@ const mockAlternatives = [
   }
 ];
 
-export function Results({ onNavigate, data }: ResultsProps) {
+export function Results({ onNavigate, user, data }: ResultsProps) {
   const productData = data?.productData;
   
   // Generate alerts from product data
@@ -308,6 +310,29 @@ export function Results({ onNavigate, data }: ResultsProps) {
             </Card>
           )}
         </div>
+
+        {/* Amazon Purchase Button */}
+        {data?.amazonLink && (
+          <Card className="card-material animate-scale-in animate-stagger-3">
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-full bg-warning/10">
+                  <ExternalLink className="h-6 w-6 text-warning" />
+                </div>
+                <div>
+                  <h3 className="text-title-large font-semibold text-foreground">Available for Purchase</h3>
+                  <p className="text-sm text-muted-foreground">Buy this healthy product online</p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => window.open(data.amazonLink, '_blank')}
+                className="w-full bg-gradient-warning hover:opacity-90 text-warning-foreground rounded-xl h-12 font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+              >
+                🛒 Buy on Amazon India
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* Detailed Analysis */}
         <Tabs defaultValue="alerts" className="w-full">

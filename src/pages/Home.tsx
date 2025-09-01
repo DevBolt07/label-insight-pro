@@ -3,14 +3,14 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 import { ProductCard } from "@/components/ui/product-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Camera, Upload, Scan, Shield, Heart, Baby, Settings, TrendingUp } from "lucide-react";
+import { Camera, Upload, Scan, Shield, Heart, Baby, Settings, TrendingUp, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { scanHistoryService } from "@/services/scanHistoryService";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from '@supabase/supabase-js';
 
 interface HomeProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, data?: any) => void;
   user: User;
 }
 
@@ -94,40 +94,82 @@ export function Home({ onNavigate, user }: HomeProps) {
   const featuredProducts = [
     {
       id: "1",
-      name: "Organic Green Tea",
-      description: "Premium organic green tea with antioxidants",
+      name: "Organic Tulsi Green Tea",
+      description: "Premium Indian Tulsi green tea with natural antioxidants and immunity boosters",
       image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&h=300&fit=crop",
       category: "Beverages",
-      score: 92,
+      score: 95,
       grade: "A" as const,
-      price: "$4.99",
-      trending: true
+      price: "₹299",
+      trending: true,
+      amazonLink: "https://www.amazon.in/s?k=organic+tulsi+green+tea"
     },
     {
       id: "2", 
-      name: "Whole Grain Cereal",
-      description: "High fiber breakfast cereal with natural ingredients",
+      name: "Whole Grain Dalia Cereal",
+      description: "Traditional Indian dalia with high fiber and natural ingredients, no artificial additives",
       image: "https://images.unsplash.com/photo-1549741072-aae3d327526b?w=400&h=300&fit=crop",
       category: "Breakfast",
-      score: 78,
-      grade: "B" as const,
-      price: "$3.49"
+      score: 88,
+      grade: "A" as const,
+      price: "₹199",
+      amazonLink: "https://www.amazon.in/s?k=organic+dalia+cereal"
     },
     {
       id: "3",
-      name: "Energy Drink",
-      description: "High caffeine energy drink with artificial additives",
-      image: "https://images.unsplash.com/photo-1570197788417-0e82375c9371?w=400&h=300&fit=crop",
+      name: "Coconut Water (Fresh)",
+      description: "Pure coconut water from Kerala, rich in electrolytes and potassium, no added sugars",
+      image: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=400&h=300&fit=crop",
       category: "Beverages", 
-      score: 34,
-      grade: "D" as const,
-      price: "$2.99"
+      score: 92,
+      grade: "A" as const,
+      price: "₹45",
+      trending: true,
+      amazonLink: "https://www.amazon.in/s?k=fresh+coconut+water"
+    },
+    {
+      id: "4",
+      name: "Almonds & Dates Mix",
+      description: "Premium Kashmiri almonds with Medjool dates, perfect healthy snack with natural sweetness",
+      image: "https://images.unsplash.com/photo-1448043552756-e747b7a2b2b8?w=400&h=300&fit=crop",
+      category: "Snacks",
+      score: 90,
+      grade: "A" as const,
+      price: "₹599",
+      amazonLink: "https://www.amazon.in/s?k=kashmiri+almonds+dates"
     }
   ];
 
   const handleAnalyzeProduct = (productId: string) => {
-    // Navigate to scanner or results with product data
-    onNavigate("scan");
+    const product = featuredProducts.find(p => p.id === productId);
+    if (product) {
+      onNavigate("results", {
+        productData: {
+          name: product.name,
+          brand: "Featured Product",
+          image_url: product.image,
+          grade: product.grade,
+          health_score: product.score,
+          categories: product.category,
+          nutrition_facts: {
+            per_100g: {
+              energy: product.name.includes('Green Tea') ? '2 kcal' : product.name.includes('Coconut') ? '19 kcal' : product.name.includes('Almond') ? '576 kcal' : '350 kcal',
+              protein: product.name.includes('Almond') ? '21g' : '2.1g',
+              carbohydrates: product.name.includes('Green Tea') ? '0g' : product.name.includes('Coconut') ? '3.7g' : '60g',
+              fat: product.name.includes('Almond') ? '50g' : '0.2g',
+              fiber: product.name.includes('Almond') ? '12g' : '2g',
+              sugar: product.name.includes('Green Tea') ? '0g' : product.name.includes('Coconut') ? '2.6g' : '5g'
+            }
+          },
+          health_warnings: product.score > 85 ? [] : ['Contains natural sugars'],
+          ingredients: product.name.includes('Green Tea') ? 'Organic Green Tea Leaves, Tulsi Leaves' : 
+                      product.name.includes('Coconut') ? 'Fresh Coconut Water' :
+                      product.name.includes('Almond') ? 'Kashmiri Almonds, Medjool Dates' : 'Whole Grain Wheat, Natural Fibers'
+        },
+        amazonLink: product.amazonLink,
+        featured: true
+      });
+    }
   };
 
   return (
@@ -232,7 +274,7 @@ export function Home({ onNavigate, user }: HomeProps) {
           </div>
         </div>
 
-        {/* Recent Activity Placeholder */}
+        {/* Recent Activity */}
         <div className="space-y-4 animate-slide-up animate-stagger-4">
           <div className="flex items-center justify-between px-2">
             <h3 className="text-title-large text-foreground font-semibold">Recent Scans</h3>
@@ -245,17 +287,60 @@ export function Home({ onNavigate, user }: HomeProps) {
               View All
             </Button>
           </div>
-          <Card className="card-material">
-            <div className="p-8 text-center space-y-3">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center">
-                <Camera className="h-8 w-8 text-primary" />
+          
+          {isLoading ? (
+            <Card className="card-material">
+              <div className="p-8 text-center space-y-3">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                </div>
+                <h4 className="font-semibold text-foreground">Loading Recent Scans</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Fetching your scan history...
+                </p>
               </div>
-              <h4 className="font-semibold text-foreground">No scans yet</h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Start by scanning your first food label to get personalized health insights!
-              </p>
+            </Card>
+          ) : recentScans.length > 0 ? (
+            <div className="space-y-3">
+              {recentScans.map((scan: any, index: number) => (
+                <Card key={scan.id} className="card-material cursor-pointer group" onClick={() => onNavigate("history")}>
+                  <div className="p-4 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-muted/30 flex items-center justify-center shrink-0 overflow-hidden">
+                      {scan.products?.image_url ? (
+                        <img src={scan.products.image_url} alt={scan.products.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Camera className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-foreground text-sm truncate">
+                        {scan.products?.name || "Unknown Product"}
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(scan.scanned_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-foreground">{scan.products?.health_score || 0}</div>
+                      <div className="text-xs text-muted-foreground">Score</div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
             </div>
-          </Card>
+          ) : (
+            <Card className="card-material">
+              <div className="p-8 text-center space-y-3">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center">
+                  <Camera className="h-8 w-8 text-primary" />
+                </div>
+                <h4 className="font-semibold text-foreground">No scans yet</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Start by scanning your first food label to get personalized health insights!
+                </p>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>

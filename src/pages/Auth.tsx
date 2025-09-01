@@ -166,7 +166,7 @@ export function Auth({ onNavigate }: AuthProps) {
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     required
-                    className="rounded-xl"
+                    className="rounded-xl text-sm"
                   />
                 </div>
 
@@ -180,7 +180,7 @@ export function Auth({ onNavigate }: AuthProps) {
                       value={formData.password}
                       onChange={(e) => handleInputChange('password', e.target.value)}
                       required
-                      className="rounded-xl pr-10"
+                      className="rounded-xl pr-10 text-sm"
                     />
                     <Button
                       type="button"
@@ -219,7 +219,7 @@ export function Auth({ onNavigate }: AuthProps) {
                     placeholder="Enter your name"
                     value={formData.displayName}
                     onChange={(e) => handleInputChange('displayName', e.target.value)}
-                    className="rounded-xl"
+                    className="rounded-xl text-sm"
                   />
                 </div>
 
@@ -232,7 +232,7 @@ export function Auth({ onNavigate }: AuthProps) {
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     required
-                    className="rounded-xl"
+                    className="rounded-xl text-sm"
                   />
                 </div>
 
@@ -242,12 +242,12 @@ export function Auth({ onNavigate }: AuthProps) {
                     <Input
                       id="signup-password"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Create a password (min 6 characters)"
+                      placeholder="Create password (6+ chars)"
                       value={formData.password}
                       onChange={(e) => handleInputChange('password', e.target.value)}
                       required
                       minLength={6}
-                      className="rounded-xl pr-10"
+                      className="rounded-xl pr-10 text-sm"
                     />
                     <Button
                       type="button"
@@ -266,11 +266,11 @@ export function Auth({ onNavigate }: AuthProps) {
                   <Input
                     id="signup-confirm"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Confirm your password"
+                    placeholder="Confirm password"
                     value={formData.confirmPassword}
                     onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
                     required
-                    className="rounded-xl"
+                    className="rounded-xl text-sm"
                   />
                 </div>
 

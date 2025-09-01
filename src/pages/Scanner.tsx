@@ -8,14 +8,16 @@ import { BarcodeScanner } from "@/components/barcode-scanner";
 import { openFoodFactsService } from "@/services/openFoodFacts";
 import { BarcodeScanResult } from "@/hooks/useBarcodeScanner";
 import { useToast } from "@/hooks/use-toast";
-import { User } from "@supabase/supabase-js";
+import { scanHistoryService } from "@/services/scanHistoryService";
+import { productService } from "@/services/productService";
+import type { User } from '@supabase/supabase-js';
 
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
   user: User;
 }
 
-export function Scanner({ onNavigate }: ScannerProps) {
+export function Scanner({ onNavigate, user }: ScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [scanMode, setScanMode] = useState<"camera" | "upload" | "barcode">("camera");
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
@@ -63,14 +65,40 @@ export function Scanner({ onNavigate }: ScannerProps) {
     try {
       const productData = await openFoodFactsService.getProductByBarcode(result.code);
       
-      setIsScanning(false);
-      
       if (productData) {
+        // Save product to database
+        const savedProduct = await productService.createOrUpdateProduct({
+          barcode: result.code,
+          name: productData.name,
+          brand: productData.brand,
+          image_url: productData.image,
+          categories: productData.categories,
+          ingredients: productData.ingredients,
+          grade: productData.grade,
+          health_score: productData.healthScore,
+          nutriscore: productData.nutriscore,
+          nova_group: productData.nova_group,
+          allergens: productData.allergens,
+          additives: productData.additives,
+          health_warnings: productData.healthWarnings,
+          nutrition_facts: productData.nutritionFacts
+        });
+
+        // Add to scan history
+        await scanHistoryService.addScanToHistory({
+          user_id: user.id,
+          product_id: savedProduct.id,
+          scan_method: 'barcode'
+        });
+
+        setIsScanning(false);
+        
         onNavigate("results", {
           productData,
           scanned: true
         });
       } else {
+        setIsScanning(false);
         toast({
           title: "Product Not Found",
           description: `No product found for barcode: ${result.code}`,

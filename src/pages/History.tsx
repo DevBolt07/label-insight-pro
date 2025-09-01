@@ -1,64 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, Calendar, Filter, Camera, MoreVertical } from "lucide-react";
+import { Search, Calendar, Filter, Camera, MoreVertical, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { User } from "@supabase/supabase-js";
+import { scanHistoryService } from "@/services/scanHistoryService";
+import { useToast } from "@/hooks/use-toast";
 
 interface HistoryProps {
   onNavigate: (page: string, data?: any) => void;
   user: User;
 }
 
-const mockHistory = [
-  {
-    id: "1",
-    productName: "Energy Drink XYZ",
-    brand: "Brand A",
-    scannedAt: "2024-01-15T10:30:00Z",
-    score: 34,
-    grade: "D" as const,
-    alerts: 3,
-    image: "/placeholder.svg",
-    category: "Beverages"
-  },
-  {
-    id: "2", 
-    productName: "Organic Granola Bar",
-    brand: "Nature's Best",
-    scannedAt: "2024-01-14T16:45:00Z",
-    score: 78,
-    grade: "B" as const,
-    alerts: 0,
-    image: "/placeholder.svg",
-    category: "Snacks"
-  },
-  {
-    id: "3",
-    productName: "Instant Noodles",
-    brand: "Quick Meal",
-    scannedAt: "2024-01-13T12:15:00Z",
-    score: 25,
-    grade: "E" as const,
-    alerts: 5,
-    image: "/placeholder.svg",
-    category: "Meals"
-  },
-  {
-    id: "4",
-    productName: "Greek Yogurt",
-    brand: "Dairy Fresh",
-    scannedAt: "2024-01-12T08:20:00Z",
-    score: 89,
-    grade: "A" as const,
-    alerts: 0,
-    image: "/placeholder.svg",
-    category: "Dairy"
-  }
-];
 
 const gradeColors = {
   A: "bg-gradient-healthy text-healthy-foreground",
@@ -68,17 +24,53 @@ const gradeColors = {
   E: "bg-gradient-danger text-danger-foreground"
 };
 
-export function History({ onNavigate }: HistoryProps) {
+export function History({ onNavigate, user }: HistoryProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredHistory, setFilteredHistory] = useState(mockHistory);
+  const [scanHistory, setScanHistory] = useState<any[]>([]);
+  const [filteredHistory, setFilteredHistory] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadScanHistory();
+  }, [user.id]);
+
+  const loadScanHistory = async () => {
+    try {
+      setIsLoading(true);
+      const history = await scanHistoryService.getUserScanHistory(user.id, 50);
+      const formattedHistory = history.map((scan: any) => ({
+        id: scan.id,
+        productName: scan.products?.name || "Unknown Product",
+        brand: scan.products?.brand || "Unknown Brand",
+        scannedAt: scan.scanned_at,
+        score: scan.products?.health_score || 0,
+        grade: scan.products?.grade || "N/A",
+        alerts: scan.products?.health_warnings?.length || 0,
+        image: scan.products?.image_url || "/placeholder.svg",
+        category: scan.products?.categories?.split(',')[0] || "Food"
+      }));
+      setScanHistory(formattedHistory);
+      setFilteredHistory(formattedHistory);
+    } catch (error) {
+      console.error('Error loading scan history:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load scan history.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     if (query.trim() === "") {
-      setFilteredHistory(mockHistory);
+      setFilteredHistory(scanHistory);
     } else {
       setFilteredHistory(
-        mockHistory.filter(item =>
+        scanHistory.filter(item =>
           item.productName.toLowerCase().includes(query.toLowerCase()) ||
           item.brand.toLowerCase().includes(query.toLowerCase()) ||
           item.category.toLowerCase().includes(query.toLowerCase())
@@ -133,14 +125,14 @@ export function History({ onNavigate }: HistoryProps) {
         <div className="grid grid-cols-3 gap-3">
           <Card className="card-material">
             <div className="p-4 text-center">
-              <div className="text-2xl font-bold text-foreground">{mockHistory.length}</div>
+              <div className="text-2xl font-bold text-foreground">{scanHistory.length}</div>
               <div className="text-xs text-muted-foreground">Total Scans</div>
             </div>
           </Card>
           <Card className="card-material">
             <div className="p-4 text-center">
               <div className="text-2xl font-bold text-danger">
-                {mockHistory.reduce((sum, item) => sum + item.alerts, 0)}
+                {scanHistory.reduce((sum, item) => sum + item.alerts, 0)}
               </div>
               <div className="text-xs text-muted-foreground">Health Alerts</div>
             </div>
@@ -148,7 +140,7 @@ export function History({ onNavigate }: HistoryProps) {
           <Card className="card-material">
             <div className="p-4 text-center">
               <div className="text-2xl font-bold text-healthy">
-                {Math.round(mockHistory.reduce((sum, item) => sum + item.score, 0) / mockHistory.length)}
+                {scanHistory.length > 0 ? Math.round(scanHistory.reduce((sum, item) => sum + item.score, 0) / scanHistory.length) : 0}
               </div>
               <div className="text-xs text-muted-foreground">Avg Score</div>
             </div>
@@ -157,7 +149,17 @@ export function History({ onNavigate }: HistoryProps) {
 
         {/* History List */}
         <div className="space-y-3">
-          {filteredHistory.length > 0 ? (
+          {isLoading ? (
+            <Card className="card-material">
+              <div className="p-8 text-center space-y-2">
+                <Loader2 className="h-12 w-12 text-primary mx-auto animate-spin" />
+                <h3 className="text-title-large text-foreground">Loading History</h3>
+                <p className="text-sm text-muted-foreground">
+                  Fetching your scan history...
+                </p>
+              </div>
+            </Card>
+          ) : filteredHistory.length > 0 ? (
             filteredHistory.map((item) => (
               <Card 
                 key={item.id} 
@@ -224,7 +226,7 @@ export function History({ onNavigate }: HistoryProps) {
         </div>
 
         {/* Empty State */}
-        {mockHistory.length === 0 && (
+        {!isLoading && scanHistory.length === 0 && (
           <Card className="card-material">
             <div className="p-8 text-center space-y-4">
               <div className="mx-auto w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center">
