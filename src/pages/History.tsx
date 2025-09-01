@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, Calendar, Filter, Camera, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { User } from "@supabase/supabase-js";
 
 interface HistoryProps {
   onNavigate: (page: string, data?: any) => void;
+  user: User;
 }
 
 const mockHistory = [

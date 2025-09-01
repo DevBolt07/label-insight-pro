@@ -10,9 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductData } from "@/services/openFoodFacts";
+import { User } from "@supabase/supabase-js";
 
 interface ResultsProps {
   onNavigate: (page: string) => void;
+  user: User;
   data?: {
     productData?: ProductData;
     scanned?: boolean;

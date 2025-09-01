@@ -8,9 +8,11 @@ import { BarcodeScanner } from "@/components/barcode-scanner";
 import { openFoodFactsService } from "@/services/openFoodFacts";
 import { BarcodeScanResult } from "@/hooks/useBarcodeScanner";
 import { useToast } from "@/hooks/use-toast";
+import { User } from "@supabase/supabase-js";
 
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
+  user: User;
 }
 
 export function Scanner({ onNavigate }: ScannerProps) {
