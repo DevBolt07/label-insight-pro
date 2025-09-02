@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Scan, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductData } from "@/services/openFoodFacts";
 import { User } from "@supabase/supabase-js";
@@ -16,10 +16,16 @@ interface ResultsProps {
   onNavigate: (page: string, data?: any) => void;
   user: User;
   data?: {
-    productData?: ProductData;
+    productData?: ProductData & {
+      // OCR-specific properties
+      confidence?: number;
+      ocrText?: string;
+      nutritionFacts?: any; // Allow flexible nutrition facts structure
+    };
     scanned?: boolean;
     amazonLink?: string;
     featured?: boolean;
+    isOCR?: boolean;
   };
 }
 
@@ -244,6 +250,97 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
           </div>
         </Card>
 
+        {/* OCR Results Section */}
+        {data?.isOCR && (
+          <Card className="card-material animate-fade-in">
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <Scan className="h-5 w-5 text-primary" />
+                <h3 className="text-title-large text-foreground">OCR Analysis</h3>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-body-medium text-muted-foreground">Confidence:</span>
+                  <span className="text-title-medium text-foreground">{productData?.confidence}%</span>
+                </div>
+                
+                {productData?.ocrText && (
+                  <div className="space-y-2">
+                    <span className="text-body-medium text-muted-foreground">Extracted Text:</span>
+                    <div className="bg-muted/50 p-3 rounded-lg text-sm text-foreground max-h-32 overflow-y-auto">
+                      {productData.ocrText}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* OCR Nutrition Facts */}
+        {data?.isOCR && productData?.nutritionFacts && (
+          <Card className="card-material animate-fade-in">
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <h3 className="text-title-large text-foreground">Extracted Nutrition Facts</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                {(productData.nutritionFacts as any)?.calories && (
+                  <div className="space-y-1">
+                    <span className="text-body-small text-muted-foreground">Calories</span>
+                    <p className="text-title-medium text-foreground">{(productData.nutritionFacts as any).calories}</p>
+                  </div>
+                )}
+                {(productData.nutritionFacts as any)?.protein && (
+                  <div className="space-y-1">
+                    <span className="text-body-small text-muted-foreground">Protein</span>
+                    <p className="text-title-medium text-foreground">{(productData.nutritionFacts as any).protein}</p>
+                  </div>
+                )}
+                {(productData.nutritionFacts as any)?.carbs && (
+                  <div className="space-y-1">
+                    <span className="text-body-small text-muted-foreground">Carbs</span>
+                    <p className="text-title-medium text-foreground">{(productData.nutritionFacts as any).carbs}</p>
+                  </div>
+                )}
+                {(productData.nutritionFacts as any)?.fat && (
+                  <div className="space-y-1">
+                    <span className="text-body-small text-muted-foreground">Fat</span>
+                    <p className="text-title-medium text-foreground">{(productData.nutritionFacts as any).fat}</p>
+                  </div>
+                )}
+                {(productData.nutritionFacts as any)?.sugar && (
+                  <div className="space-y-1">
+                    <span className="text-body-small text-muted-foreground">Sugar</span>
+                    <p className="text-title-medium text-foreground">{(productData.nutritionFacts as any).sugar}</p>
+                  </div>
+                )}
+                {(productData.nutritionFacts as any)?.sodium && (
+                  <div className="space-y-1">
+                    <span className="text-body-small text-muted-foreground">Sodium</span>
+                    <p className="text-title-medium text-foreground">{(productData.nutritionFacts as any).sodium}</p>
+                  </div>
+                )}
+                {(productData.nutritionFacts as any)?.fiber && (
+                  <div className="space-y-1">
+                    <span className="text-body-small text-muted-foreground">Fiber</span>
+                    <p className="text-title-medium text-foreground">{(productData.nutritionFacts as any).fiber}</p>
+                  </div>
+                )}
+                {(productData.nutritionFacts as any)?.servingSize && (
+                  <div className="space-y-1 col-span-2">
+                    <span className="text-body-small text-muted-foreground">Serving Size</span>
+                    <p className="text-title-medium text-foreground">{(productData.nutritionFacts as any).servingSize}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Health Scores */}
         <div className="grid gap-4 animate-slide-up animate-stagger-1">
           <HealthScoreCard
@@ -254,7 +351,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
             className="animate-scale-in"
           />
           
-          {productData?.nutritionFacts && (
+          {productData?.nutritionFacts && !data?.isOCR && (
             <Card className="card-material p-5 animate-scale-in animate-stagger-2">
               <h3 className="text-title-large text-foreground font-semibold mb-4">Nutrition Facts (per 100g)</h3>
               <div className="grid grid-cols-2 gap-3 text-sm">
