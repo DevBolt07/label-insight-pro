@@ -10,7 +10,6 @@ import { BarcodeScanResult } from "@/hooks/useBarcodeScanner";
 import { useToast } from "@/hooks/use-toast";
 import { scanHistoryService } from "@/services/scanHistoryService";
 import { productService } from "@/services/productService";
-import { useOCR } from "@/hooks/useOCR";
 import type { User } from '@supabase/supabase-js';
 
 interface ScannerProps {
@@ -24,69 +23,35 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { processImage, isProcessing } = useOCR();
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Simulate processing
       setIsScanning(true);
-      
-      try {
-        // Process image with OCR
-        const ocrAnalysis = await processImage(file);
-        
-        // Save product to database  
-        const savedProduct = await productService.createOrUpdateProduct({
-          barcode: `ocr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID for OCR scans
-          name: 'OCR Scanned Product',
-          image_url: URL.createObjectURL(file),
-          health_score: ocrAnalysis.healthScore,
-          ingredients: JSON.stringify(ocrAnalysis.nutritionInfo.ingredients || []),
-          nutrition_facts: JSON.stringify(ocrAnalysis.nutritionInfo)
-        });
-
-        // Add to scan history
-        await scanHistoryService.addScanToHistory({
-          user_id: user.id,
-          product_id: savedProduct.id,
-          scan_method: 'ocr'
-        });
-
+      setTimeout(() => {
         setIsScanning(false);
-        
+        // Navigate to results with mock data
         onNavigate("results", {
-          productData: {
-            name: 'OCR Scanned Product',
-            image: URL.createObjectURL(file),
-            healthScore: ocrAnalysis.healthScore,
-            ingredients: ocrAnalysis.nutritionInfo.ingredients || [],
-            nutritionFacts: ocrAnalysis.nutritionInfo,
-            ocrText: ocrAnalysis.text,
-            confidence: ocrAnalysis.confidence,
-            healthAlerts: ocrAnalysis.healthAlerts
-          },
-          scanned: true,
-          isOCR: true
+          productName: "Sample Product",
+          image: URL.createObjectURL(file),
+          scanned: true
         });
-      } catch (error) {
-        setIsScanning(false);
-        toast({
-          title: "OCR Processing Failed",
-          description: error instanceof Error ? error.message : "Failed to process image",
-          variant: "destructive"
-        });
-      }
+      }, 2000);
     }
   };
 
   const handleCameraCapture = () => {
-    // For now, redirect to file upload since camera capture requires more complex implementation
-    toast({
-      title: "Camera Feature",
-      description: "Please use the Upload Image option to select a photo from your gallery.",
-      duration: 3000
-    });
-    fileInputRef.current?.click();
+    setIsScanning(true);
+    // Simulate camera capture and processing
+    setTimeout(() => {
+      setIsScanning(false);
+      onNavigate("results", {
+        productName: "Captured Product",
+        image: "/placeholder.svg",
+        scanned: true
+      });
+    }, 3000);
   };
 
   const handleBarcodeScanne = () => {
@@ -158,16 +123,16 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     {
       id: "camera",
       icon: Camera,
-      title: "OCR Camera Scan",
-      description: "Extract text from nutrition labels",
+      title: "Camera Scan",
+      description: "Take a photo of nutrition label",
       action: handleCameraCapture,
       gradient: "bg-gradient-primary"
     },
     {
       id: "upload",
       icon: Upload,
-      title: "Upload for OCR",
-      description: "Process nutrition label images",
+      title: "Upload Image",
+      description: "Choose image from gallery",
       action: () => fileInputRef.current?.click(),
       gradient: "bg-gradient-healthy"
     },
@@ -207,14 +172,14 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
                 </p>
               </div>
               
-               <div className="space-y-2 text-sm text-muted-foreground">
+              <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center justify-center gap-2">
                   <Zap className="h-4 w-4 text-primary" />
-                  <span>Reading text from image</span>
+                  <span>Extracting ingredients</span>
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <Zap className="h-4 w-4 text-primary" />
-                  <span>Extracting nutrition facts</span>
+                  <span>Checking health claims</span>
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <Zap className="h-4 w-4 text-primary" />
@@ -276,23 +241,19 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
             <div className="space-y-3 text-sm text-muted-foreground">
               <div className="flex items-start gap-2">
                 <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
-                <span>Ensure good lighting and clear focus for OCR</span>
+                <span>Ensure good lighting and clear focus</span>
               </div>
               <div className="flex items-start gap-2">
                 <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
-                <span>Capture the entire nutrition label clearly</span>
+                <span>Capture the entire ingredients list</span>
               </div>
               <div className="flex items-start gap-2">
                 <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
-                <span>Keep the image straight and avoid shadows</span>
+                <span>Avoid shadows and reflections</span>
               </div>
               <div className="flex items-start gap-2">
                 <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
-                <span>For barcodes, center it in the scanning frame</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
-                <span>OCR works best with printed text on clean backgrounds</span>
+                <span>For barcodes, center it in the frame</span>
               </div>
             </div>
           </div>
