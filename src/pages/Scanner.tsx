@@ -62,7 +62,8 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
             ingredients: ocrAnalysis.nutritionInfo.ingredients || [],
             nutritionFacts: ocrAnalysis.nutritionInfo,
             ocrText: ocrAnalysis.text,
-            confidence: ocrAnalysis.confidence
+            confidence: ocrAnalysis.confidence,
+            healthAlerts: ocrAnalysis.healthAlerts
           },
           scanned: true,
           isOCR: true

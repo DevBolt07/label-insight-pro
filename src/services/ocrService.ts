@@ -17,6 +17,14 @@ export interface NutritionInfo {
   servingSize?: string;
 }
 
+export interface HealthAlert {
+  id: string;
+  ingredient: string;
+  alias?: string;
+  reason: string;
+  severity: 'low' | 'medium' | 'high';
+}
+
 class OCRService {
   private worker: Tesseract.Worker | null = null;
 
@@ -44,69 +52,187 @@ class OCRService {
 
   parseNutritionInfo(text: string): NutritionInfo {
     const nutritionInfo: NutritionInfo = {};
-    const lines = text.toLowerCase().split('\n');
+    const cleanText = this.cleanExtractedText(text);
     
     // Extract calories
-    const caloriesMatch = text.match(/calories?\s*:?\s*(\d+)/i);
+    const caloriesMatch = cleanText.match(/calories?\s*:?\s*(\d+)/i);
     if (caloriesMatch) {
       nutritionInfo.calories = caloriesMatch[1];
     }
 
     // Extract protein
-    const proteinMatch = text.match(/protein\s*:?\s*(\d+\.?\d*)\s*g?/i);
+    const proteinMatch = cleanText.match(/protein\s*:?\s*(\d+\.?\d*)\s*g?/i);
     if (proteinMatch) {
       nutritionInfo.protein = proteinMatch[1] + 'g';
     }
 
     // Extract carbohydrates
-    const carbsMatch = text.match(/carbohydrate[s]?\s*:?\s*(\d+\.?\d*)\s*g?/i);
+    const carbsMatch = cleanText.match(/(?:total\s+)?carbohydrate[s]?\s*:?\s*(\d+\.?\d*)\s*g?/i);
     if (carbsMatch) {
       nutritionInfo.carbs = carbsMatch[1] + 'g';
     }
 
     // Extract fat
-    const fatMatch = text.match(/(?:total\s+)?fat\s*:?\s*(\d+\.?\d*)\s*g?/i);
+    const fatMatch = cleanText.match(/(?:total\s+)?fat\s*:?\s*(\d+\.?\d*)\s*g?/i);
     if (fatMatch) {
       nutritionInfo.fat = fatMatch[1] + 'g';
     }
 
     // Extract sugar
-    const sugarMatch = text.match(/sugar[s]?\s*:?\s*(\d+\.?\d*)\s*g?/i);
+    const sugarMatch = cleanText.match(/(?:total\s+)?sugar[s]?\s*:?\s*(\d+\.?\d*)\s*g?/i);
     if (sugarMatch) {
       nutritionInfo.sugar = sugarMatch[1] + 'g';
     }
 
-    // Extract sodium
-    const sodiumMatch = text.match(/sodium\s*:?\s*(\d+\.?\d*)\s*(?:mg|g)?/i);
+    // Extract sodium/salt
+    const sodiumMatch = cleanText.match(/(?:sodium|salt)\s*:?\s*(\d+\.?\d*)\s*(?:mg|g)?/i);
     if (sodiumMatch) {
       nutritionInfo.sodium = sodiumMatch[1] + 'mg';
     }
 
     // Extract fiber
-    const fiberMatch = text.match(/fiber\s*:?\s*(\d+\.?\d*)\s*g?/i);
+    const fiberMatch = cleanText.match(/(?:dietary\s+)?fiber\s*:?\s*(\d+\.?\d*)\s*g?/i);
     if (fiberMatch) {
       nutritionInfo.fiber = fiberMatch[1] + 'g';
     }
 
     // Extract serving size
-    const servingMatch = text.match(/serving\s+size\s*:?\s*([^\n]+)/i);
+    const servingMatch = cleanText.match(/serving\s+size\s*:?\s*([^\n]+)/i);
     if (servingMatch) {
       nutritionInfo.servingSize = servingMatch[1].trim();
     }
 
-    // Extract ingredients - look for ingredients list
-    const ingredientsMatch = text.match(/ingredients?\s*:?\s*([^.]+(?:\.[^.]*)*)/i);
-    if (ingredientsMatch) {
-      const ingredientsList = ingredientsMatch[1]
-        .split(/[,;]/)
-        .map(ingredient => ingredient.trim())
-        .filter(ingredient => ingredient.length > 2)
-        .slice(0, 20); // Limit to first 20 ingredients
-      
-      nutritionInfo.ingredients = ingredientsList;
-    }
+    // Extract ingredients - enhanced parsing
+    nutritionInfo.ingredients = this.extractIngredients(cleanText);
 
     return nutritionInfo;
+  }
+
+  private cleanExtractedText(text: string): string {
+    return text
+      .replace(/[^\w\s:.,;()-]/g, ' ') // Remove special characters except common punctuation
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .replace(/(\d)\s*([a-zA-Z])/g, '$1$2') // Remove spaces between numbers and units (e.g., "5 g" -> "5g")
+      .trim();
+  }
+
+  private extractIngredients(text: string): string[] {
+    // Look for ingredients section with various patterns
+    const ingredientPatterns = [
+      /ingredients?\s*:?\s*([^.]+(?:\.[^.]*)*)/i,
+      /contains?\s*:?\s*([^.]+)/i,
+      /made\s+with\s*:?\s*([^.]+)/i
+    ];
+
+    let ingredientsList: string[] = [];
+
+    for (const pattern of ingredientPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        ingredientsList = match[1]
+          .split(/[,;]/)
+          .map(ingredient => ingredient.trim())
+          .filter(ingredient => ingredient.length > 2)
+          .slice(0, 30); // Increased limit for better ingredient detection
+        break;
+      }
+    }
+
+    return ingredientsList;
+  }
+
+  analyzeHealthRisks(nutritionInfo: NutritionInfo): HealthAlert[] {
+    const alerts: HealthAlert[] = [];
+
+    // Check sugar content
+    if (nutritionInfo.sugar) {
+      const sugarAmount = parseFloat(nutritionInfo.sugar);
+      if (sugarAmount > 15) {
+        alerts.push({
+          id: 'high-sugar',
+          ingredient: 'Sugar',
+          alias: nutritionInfo.sugar,
+          reason: 'High sugar content may contribute to obesity, diabetes, and tooth decay',
+          severity: 'high'
+        });
+      } else if (sugarAmount > 10) {
+        alerts.push({
+          id: 'medium-sugar',
+          ingredient: 'Sugar',
+          alias: nutritionInfo.sugar,
+          reason: 'Moderate sugar content - consume in moderation',
+          severity: 'medium'
+        });
+      }
+    }
+
+    // Check sodium/salt content
+    if (nutritionInfo.sodium) {
+      const sodiumAmount = parseFloat(nutritionInfo.sodium);
+      if (sodiumAmount > 800) {
+        alerts.push({
+          id: 'high-sodium',
+          ingredient: 'Sodium',
+          alias: nutritionInfo.sodium,
+          reason: 'Excessive sodium intake may lead to high blood pressure and heart disease',
+          severity: 'high'
+        });
+      } else if (sodiumAmount > 500) {
+        alerts.push({
+          id: 'medium-sodium',
+          ingredient: 'Sodium',
+          alias: nutritionInfo.sodium,
+          reason: 'High sodium content - monitor your daily intake',
+          severity: 'medium'
+        });
+      }
+    }
+
+    // Check ingredients for harmful additives
+    if (nutritionInfo.ingredients) {
+      const harmfulAdditives = [
+        { name: 'High Fructose Corn Syrup', keywords: ['high fructose corn syrup', 'hfcs'], severity: 'high' as const },
+        { name: 'Trans Fat', keywords: ['partially hydrogenated', 'trans fat'], severity: 'high' as const },
+        { name: 'Artificial Colors', keywords: ['artificial color', 'fd&c', 'yellow 5', 'red 40', 'blue 1'], severity: 'medium' as const },
+        { name: 'Artificial Flavors', keywords: ['artificial flavor', 'artificial flavoring'], severity: 'medium' as const },
+        { name: 'Preservatives', keywords: ['bha', 'bht', 'sodium benzoate', 'potassium sorbate'], severity: 'medium' as const },
+        { name: 'MSG', keywords: ['monosodium glutamate', 'msg'], severity: 'medium' as const },
+        { name: 'Sodium Nitrate', keywords: ['sodium nitrate', 'sodium nitrite'], severity: 'high' as const },
+        { name: 'Aspartame', keywords: ['aspartame'], severity: 'medium' as const }
+      ];
+
+      const ingredientsText = nutritionInfo.ingredients.join(' ').toLowerCase();
+      
+      harmfulAdditives.forEach(additive => {
+        additive.keywords.forEach(keyword => {
+          if (ingredientsText.includes(keyword)) {
+            alerts.push({
+              id: `additive-${keyword.replace(/\s+/g, '-')}`,
+              ingredient: additive.name,
+              alias: keyword,
+              reason: this.getAdditiveReason(additive.name),
+              severity: additive.severity
+            });
+          }
+        });
+      });
+    }
+
+    return alerts;
+  }
+
+  private getAdditiveReason(additiveName: string): string {
+    const reasons: Record<string, string> = {
+      'High Fructose Corn Syrup': 'Linked to obesity, diabetes, and metabolic disorders',
+      'Trans Fat': 'Increases bad cholesterol and risk of heart disease',
+      'Artificial Colors': 'May cause hyperactivity in children and allergic reactions',
+      'Artificial Flavors': 'Chemical compounds that may have unknown long-term effects',
+      'Preservatives': 'Some preservatives may cause allergic reactions or health issues',
+      'MSG': 'May cause headaches, nausea, and other symptoms in sensitive individuals',
+      'Sodium Nitrate': 'Linked to increased cancer risk and cardiovascular problems',
+      'Aspartame': 'Artificial sweetener with potential neurological effects'
+    };
+    return reasons[additiveName] || 'May have potential health concerns';
   }
 
   generateHealthScore(nutritionInfo: NutritionInfo): number {

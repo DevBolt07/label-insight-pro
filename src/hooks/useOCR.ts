@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
-import { ocrService, OCRResult, NutritionInfo } from '@/services/ocrService';
+import { ocrService, OCRResult, NutritionInfo, HealthAlert } from '@/services/ocrService';
 
 export interface OCRAnalysis {
   text: string;
   confidence: number;
   nutritionInfo: NutritionInfo;
   healthScore: number;
+  healthAlerts: HealthAlert[];
 }
 
 export function useOCR() {
@@ -29,12 +30,16 @@ export function useOCR() {
       
       // Generate health score
       const healthScore = ocrService.generateHealthScore(nutritionInfo);
+      
+      // Analyze health risks
+      const healthAlerts = ocrService.analyzeHealthRisks(nutritionInfo);
 
       return {
         text: ocrResult.text,
         confidence: ocrResult.confidence,
         nutritionInfo,
-        healthScore
+        healthScore,
+        healthAlerts
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'OCR processing failed';

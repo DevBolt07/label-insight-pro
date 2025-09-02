@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { ProductData } from "@/services/openFoodFacts";
 import { User } from "@supabase/supabase-js";
 
+import { HealthAlert } from "@/services/ocrService";
+
 interface ResultsProps {
   onNavigate: (page: string, data?: any) => void;
   user: User;
@@ -21,6 +23,7 @@ interface ResultsProps {
       confidence?: number;
       ocrText?: string;
       nutritionFacts?: any; // Allow flexible nutrition facts structure
+      healthAlerts?: HealthAlert[]; // OCR health alerts
     };
     scanned?: boolean;
     amazonLink?: string;
@@ -244,11 +247,45 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                 </Badge>
               )}
               {data?.scanned && (
-                <Badge variant="secondary" className="rounded-full">Scanned</Badge>
+                <Badge variant="secondary" className="rounded-full flex items-center gap-1">
+                  <Scan className="h-3 w-3" />
+                  Scanned
+                </Badge>
+              )}
+              {data?.isOCR && (
+                <Badge variant="outline" className="rounded-full border-primary/50 text-primary flex items-center gap-1">
+                  <Scan className="h-3 w-3" />
+                  OCR
+                </Badge>
               )}
             </div>
           </div>
         </Card>
+
+        {/* Health Alerts (OCR) */}
+        {data?.isOCR && productData?.healthAlerts && productData.healthAlerts.length > 0 && (
+          <Card className="card-material border-warning/20 animate-fade-in">
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-warning" />
+                <h3 className="text-title-large text-foreground">Health Alerts</h3>
+                <Badge variant="outline" className="text-xs">
+                  AI Detected
+                </Badge>
+              </div>
+              
+              <div className="space-y-3">
+                {productData.healthAlerts.map((alert: any) => (
+                  <IngredientAlertCard 
+                    key={alert.id} 
+                    alert={alert}
+                    onDismiss={handleDismissAlert}
+                  />
+                ))}
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* OCR Results Section */}
         {data?.isOCR && (
@@ -472,15 +509,50 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
           <TabsContent value="ingredients" className="space-y-3 mt-4">
             <Card className="card-material">
               <div className="p-6 space-y-3">
-                <h3 className="text-title-large text-foreground">Ingredients List</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-title-large text-foreground">
+                    {data?.isOCR ? 'Detected Ingredients' : 'Ingredients List'}
+                  </h3>
+                  {data?.isOCR && (
+                    <Badge variant="outline" className="text-xs">
+                      OCR Extracted
+                    </Badge>
+                  )}
+                </div>
                 {ingredientsList.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {ingredientsList.map((ingredient, index) => (
-                      <Badge key={index} variant="outline" className="text-xs">
-                        {ingredient}
-                      </Badge>
-                    ))}
-                  </div>
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {ingredientsList.map((ingredient, index) => {
+                        // Check if ingredient contains potentially harmful keywords
+                        const isHighRisk = /sugar|corn syrup|artificial|preservative|sodium|trans fat/i.test(ingredient);
+                        const isMediumRisk = /salt|oil|flavor|color/i.test(ingredient);
+                        
+                        return (
+                          <Badge 
+                            key={index} 
+                            variant={isHighRisk ? "destructive" : isMediumRisk ? "secondary" : "outline"}
+                            className={cn(
+                              "text-xs transition-colors",
+                              isHighRisk && "border-destructive/50 bg-destructive/10",
+                              isMediumRisk && "border-warning/50 bg-warning/10"
+                            )}
+                          >
+                            {ingredient}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                    
+                    {data?.isOCR && (
+                      <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg mt-3">
+                        <p className="flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Ingredients highlighted in red may contain high-risk additives. 
+                          Yellow indicates moderate concern ingredients.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     No ingredients information available
