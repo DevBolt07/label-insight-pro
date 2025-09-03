@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductData } from "@/services/openFoodFacts";
 import { User } from "@supabase/supabase-js";
@@ -198,14 +198,13 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
         {/* Product Info */}
         <Card className="card-material overflow-hidden animate-fade-in">
           <div className="aspect-[4/3] bg-gradient-to-br from-muted/30 to-muted/10 flex items-center justify-center relative overflow-hidden">
-            {productData?.image ? (
+            {productData?.image && productData.image !== "/placeholder.svg" ? (
               <img src={productData.image} alt="Product" className="w-full h-full object-cover" />
             ) : (
-              <img 
-                src="https://images.unsplash.com/photo-1570197788417-0e82375c9371?w=400&h=300&fit=crop" 
-                alt="Product Sample" 
-                className="w-full h-full object-cover"
-              />
+              <div className="text-center space-y-2">
+                <Camera className="h-16 w-16 text-muted-foreground mx-auto" />
+                <p className="text-sm text-muted-foreground">Image Not Found</p>
+              </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
           </div>

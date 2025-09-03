@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Heart, AlertTriangle, Baby, Wheat, Beef, Apple, Milk, Egg, Fish, User as UserIcon, Save, Edit3, LogOut, Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Heart, AlertTriangle, Baby, Wheat, Beef, Apple, Milk, Egg, Fish, User as UserIcon, Save, Edit3, LogOut, Loader2, Calculator, Plus, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { profileService } from "@/services/profileService";
@@ -52,11 +53,22 @@ const dietaryPreferences = [
 export function Profile({ onNavigate, user }: ProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [age, setAge] = useState("");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [bmi, setBmi] = useState<number | null>(null);
   const [ageGroup, setAgeGroup] = useState("");
   const [userHealthConditions, setUserHealthConditions] = useState<string[]>([]);
   const [userAllergies, setUserAllergies] = useState<string[]>([]);
   const [userDietaryPreferences, setUserDietaryPreferences] = useState<string[]>([]);
+  const [customHealthConditions, setCustomHealthConditions] = useState<string[]>([]);
+  const [customAllergies, setCustomAllergies] = useState<string[]>([]);
+  const [customDietaryPreferences, setCustomDietaryPreferences] = useState<string[]>([]);
+  const [newCustomHealth, setNewCustomHealth] = useState("");
+  const [newCustomAllergy, setNewCustomAllergy] = useState("");
+  const [newCustomDietary, setNewCustomDietary] = useState("");
   const [childMode, setChildMode] = useState(false);
   
   const { signOut } = useAuth();
@@ -73,10 +85,18 @@ export function Profile({ onNavigate, user }: ProfileProps) {
       const profile = await profileService.getProfile(user.id);
       
       if (profile) {
-        setName(profile.display_name || "");
+        setFirstName(profile.first_name || "");
+        setLastName(profile.last_name || "");
+        setAge(profile.age ? profile.age.toString() : "");
+        setHeight(profile.height_cm ? profile.height_cm.toString() : "");
+        setWeight(profile.weight_kg ? profile.weight_kg.toString() : "");
+        setBmi(profile.bmi || null);
         setUserHealthConditions(profile.health_conditions || []);
         setUserAllergies(profile.allergies || []);
         setUserDietaryPreferences(profile.dietary_restrictions || []);
+        setCustomHealthConditions(profile.custom_health_conditions || []);
+        setCustomAllergies(profile.custom_allergies || []);
+        setCustomDietaryPreferences(profile.custom_dietary_preferences || []);
         
         // Load nutrition goals data
         if (profile.nutrition_goals) {
@@ -95,6 +115,36 @@ export function Profile({ onNavigate, user }: ProfileProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Calculate BMI
+  const calculateBMI = () => {
+    const heightNum = parseFloat(height);
+    const weightNum = parseFloat(weight);
+    
+    if (heightNum > 0 && weightNum > 0) {
+      const heightInMeters = heightNum / 100;
+      const calculatedBMI = weightNum / (heightInMeters * heightInMeters);
+      setBmi(Math.round(calculatedBMI * 10) / 10);
+      return calculatedBMI;
+    }
+    return null;
+  };
+
+  // Get BMI category
+  const getBMICategory = (bmiValue: number): string => {
+    if (bmiValue < 18.5) return "Underweight";
+    if (bmiValue < 25) return "Normal";
+    if (bmiValue < 30) return "Overweight";
+    return "Obese";
+  };
+
+  // Get BMI color
+  const getBMIColor = (bmiValue: number): string => {
+    if (bmiValue < 18.5) return "text-warning";
+    if (bmiValue < 25) return "text-healthy";
+    if (bmiValue < 30) return "text-warning";
+    return "text-danger";
   };
 
   const handleConditionChange = (conditionValue: string, checked: boolean) => {
@@ -125,12 +175,27 @@ export function Profile({ onNavigate, user }: ProfileProps) {
     try {
       setIsLoading(true);
       
+      // Calculate BMI before saving
+      const calculatedBMI = calculateBMI();
+      
+      const displayName = `${firstName} ${lastName}`.trim() || 
+                          user.email?.split('@')[0] || "User";
+      
       await profileService.upsertProfile({
         user_id: user.id,
-        display_name: name || user.email?.split('@')[0] || "User",
+        first_name: firstName,
+        last_name: lastName,
+        display_name: displayName,
+        age: age ? parseInt(age) : null,
+        height_cm: height ? parseFloat(height) : null,
+        weight_kg: weight ? parseFloat(weight) : null,
+        bmi: calculatedBMI,
         health_conditions: userHealthConditions,
         allergies: userAllergies,
         dietary_restrictions: userDietaryPreferences,
+        custom_health_conditions: customHealthConditions,
+        custom_allergies: customAllergies,
+        custom_dietary_preferences: customDietaryPreferences,
         // Store nutrition goals as JSON for age group and child mode
         nutrition_goals: {
           age_group: ageGroup,
@@ -156,6 +221,40 @@ export function Profile({ onNavigate, user }: ProfileProps) {
     }
   };
 
+  // Custom preference handlers
+  const addCustomHealth = () => {
+    if (newCustomHealth.trim() && !customHealthConditions.includes(newCustomHealth.trim())) {
+      setCustomHealthConditions([...customHealthConditions, newCustomHealth.trim()]);
+      setNewCustomHealth("");
+    }
+  };
+
+  const removeCustomHealth = (condition: string) => {
+    setCustomHealthConditions(customHealthConditions.filter(c => c !== condition));
+  };
+
+  const addCustomAllergy = () => {
+    if (newCustomAllergy.trim() && !customAllergies.includes(newCustomAllergy.trim())) {
+      setCustomAllergies([...customAllergies, newCustomAllergy.trim()]);
+      setNewCustomAllergy("");
+    }
+  };
+
+  const removeCustomAllergy = (allergy: string) => {
+    setCustomAllergies(customAllergies.filter(a => a !== allergy));
+  };
+
+  const addCustomDietary = () => {
+    if (newCustomDietary.trim() && !customDietaryPreferences.includes(newCustomDietary.trim())) {
+      setCustomDietaryPreferences([...customDietaryPreferences, newCustomDietary.trim()]);
+      setNewCustomDietary("");
+    }
+  };
+
+  const removeCustomDietary = (preference: string) => {
+    setCustomDietaryPreferences(customDietaryPreferences.filter(p => p !== preference));
+  };
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -176,7 +275,7 @@ export function Profile({ onNavigate, user }: ProfileProps) {
     <div className="min-h-screen bg-background pb-20">
       <MobileHeader 
         title="User Profile"
-        subtitle={name || user.email?.split('@')[0] || "User"}
+        subtitle={`${firstName} ${lastName}`.trim() || user.email?.split('@')[0] || "User"}
         rightAction={
           <div className="flex items-center gap-2">
             <Button 
@@ -214,17 +313,92 @@ export function Profile({ onNavigate, user }: ProfileProps) {
             </div>
 
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="rounded-xl"
-                  disabled={!isEditing}
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    placeholder="Enter first name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="rounded-xl"
+                    disabled={!isEditing}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    placeholder="Enter last name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="rounded-xl"
+                    disabled={!isEditing}
+                  />
+                </div>
               </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="age">Age</Label>
+                  <Input
+                    id="age"
+                    placeholder="25"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    className="rounded-xl"
+                    disabled={!isEditing}
+                    type="number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="height">Height (cm)</Label>
+                  <Input
+                    id="height"
+                    placeholder="170"
+                    value={height}
+                    onChange={(e) => {
+                      setHeight(e.target.value);
+                      if (weight) calculateBMI();
+                    }}
+                    className="rounded-xl"
+                    disabled={!isEditing}
+                    type="number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="weight">Weight (kg)</Label>
+                  <Input
+                    id="weight"
+                    placeholder="70"
+                    value={weight}
+                    onChange={(e) => {
+                      setWeight(e.target.value);
+                      if (height) calculateBMI();
+                    }}
+                    className="rounded-xl"
+                    disabled={!isEditing}
+                    type="number"
+                  />
+                </div>
+              </div>
+
+              {bmi && (
+                <Card className="bg-muted/30 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-primary/10">
+                      <Calculator className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-muted-foreground">BMI:</span>
+                        <span className={`font-bold ${getBMIColor(bmi)}`}>{bmi}</span>
+                        <span className={`text-sm ${getBMIColor(bmi)}`}>({getBMICategory(bmi)})</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="age-group">Age Group</Label>
@@ -279,6 +453,48 @@ export function Profile({ onNavigate, user }: ProfileProps) {
                   </div>
                 );
               })}
+              
+              {/* Custom Health Conditions */}
+              <div className="space-y-2">
+                {customHealthConditions.map((condition) => (
+                  <div key={condition} className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{condition}</span>
+                    </div>
+                    {isEditing && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeCustomHealth(condition)}
+                        className="h-6 w-6 p-0 rounded-full"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                
+                {isEditing && (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Add custom condition"
+                      value={newCustomHealth}
+                      onChange={(e) => setNewCustomHealth(e.target.value)}
+                      className="rounded-xl text-sm"
+                      onKeyPress={(e) => e.key === 'Enter' && addCustomHealth()}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addCustomHealth}
+                      className="shrink-0 rounded-xl"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </Card>
@@ -296,21 +512,65 @@ export function Profile({ onNavigate, user }: ProfileProps) {
               </div>
             </div>
             
-            <div className="flex flex-wrap gap-2">
-              {allergens.map((allergen) => {
-                const Icon = allergen.icon;
-                return (
-                  <Badge
-                    key={allergen.value}
-                    variant={userAllergies.includes(allergen.value) ? "default" : "outline"}
-                    className={`cursor-pointer transition-all hover:scale-105 ${!isEditing ? 'pointer-events-none opacity-70' : ''}`}
-                    onClick={() => isEditing && handleAllergyToggle(allergen.value)}
-                  >
-                    <Icon className="h-3 w-3 mr-1" />
-                    {allergen.label}
-                  </Badge>
-                );
-              })}
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {allergens.map((allergen) => {
+                  const Icon = allergen.icon;
+                  return (
+                    <Badge
+                      key={allergen.value}
+                      variant={userAllergies.includes(allergen.value) ? "default" : "outline"}
+                      className={`cursor-pointer transition-all hover:scale-105 ${!isEditing ? 'pointer-events-none opacity-70' : ''}`}
+                      onClick={() => isEditing && handleAllergyToggle(allergen.value)}
+                    >
+                      <Icon className="h-3 w-3 mr-1" />
+                      {allergen.label}
+                    </Badge>
+                  );
+                })}
+              </div>
+              
+              {/* Custom Allergies */}
+              <div className="space-y-2">
+                {customAllergies.map((allergy) => (
+                  <div key={allergy} className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-warning" />
+                      <span className="text-sm font-medium">{allergy}</span>
+                    </div>
+                    {isEditing && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeCustomAllergy(allergy)}
+                        className="h-6 w-6 p-0 rounded-full"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                
+                {isEditing && (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Add custom allergy"
+                      value={newCustomAllergy}
+                      onChange={(e) => setNewCustomAllergy(e.target.value)}
+                      className="rounded-xl text-sm"
+                      onKeyPress={(e) => e.key === 'Enter' && addCustomAllergy()}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addCustomAllergy}
+                      className="shrink-0 rounded-xl"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </Card>
@@ -328,21 +588,65 @@ export function Profile({ onNavigate, user }: ProfileProps) {
               </div>
             </div>
             
-            <div className="flex flex-wrap gap-2">
-              {dietaryPreferences.map((preference) => {
-                const Icon = preference.icon;
-                return (
-                  <Badge
-                    key={preference.value}
-                    variant={userDietaryPreferences.includes(preference.value) ? "default" : "outline"}
-                    className={`cursor-pointer transition-all hover:scale-105 ${!isEditing ? 'pointer-events-none opacity-70' : ''}`}
-                    onClick={() => isEditing && handleDietaryToggle(preference.value)}
-                  >
-                    <Icon className="h-3 w-3 mr-1" />
-                    {preference.label}
-                  </Badge>
-                );
-              })}
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {dietaryPreferences.map((preference) => {
+                  const Icon = preference.icon;
+                  return (
+                    <Badge
+                      key={preference.value}
+                      variant={userDietaryPreferences.includes(preference.value) ? "default" : "outline"}
+                      className={`cursor-pointer transition-all hover:scale-105 ${!isEditing ? 'pointer-events-none opacity-70' : ''}`}
+                      onClick={() => isEditing && handleDietaryToggle(preference.value)}
+                    >
+                      <Icon className="h-3 w-3 mr-1" />
+                      {preference.label}
+                    </Badge>
+                  );
+                })}
+              </div>
+              
+              {/* Custom Dietary Preferences */}
+              <div className="space-y-2">
+                {customDietaryPreferences.map((preference) => (
+                  <div key={preference} className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Apple className="h-4 w-4 text-healthy" />
+                      <span className="text-sm font-medium">{preference}</span>
+                    </div>
+                    {isEditing && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeCustomDietary(preference)}
+                        className="h-6 w-6 p-0 rounded-full"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                
+                {isEditing && (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Add custom preference"
+                      value={newCustomDietary}
+                      onChange={(e) => setNewCustomDietary(e.target.value)}
+                      className="rounded-xl text-sm"
+                      onKeyPress={(e) => e.key === 'Enter' && addCustomDietary()}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addCustomDietary}
+                      className="shrink-0 rounded-xl"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </Card>

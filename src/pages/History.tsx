@@ -89,12 +89,55 @@ export function History({ onNavigate, user }: HistoryProps) {
     });
   };
 
-  const handleItemClick = (item: any) => {
-    onNavigate("results", {
-      productName: item.productName,
-      image: item.image,
-      fromHistory: true
-    });
+  const handleItemClick = async (item: any) => {
+    try {
+      // Get the full scan history item to access the product data
+      const fullHistory = await scanHistoryService.getUserScanHistory(user.id, 50);
+      const fullItem = fullHistory.find((scan: any) => scan.id === item.id);
+      
+      if (fullItem && (fullItem as any).products) {
+        const productData = (fullItem as any).products;
+        // Navigate with full product data for complete analysis
+        onNavigate("results", {
+          productData: {
+            name: productData.name,
+            brand: productData.brand,
+            image: productData.image_url,
+            categories: productData.categories,
+            ingredients: productData.ingredients || "",
+            nutriscore: productData.nutriscore,
+            nova_group: productData.nova_group,
+            nutritionFacts: productData.nutrition_facts,
+            healthWarnings: productData.health_warnings || [],
+            allergens: productData.allergens || [],
+            additives: productData.additives || []
+          },
+          fromHistory: true,
+          scanned: true
+        });
+      } else {
+        // Fallback to basic data
+        onNavigate("results", {
+          productData: {
+            name: item.productName,
+            image: item.image,
+            brand: item.brand
+          },
+          fromHistory: true
+        });
+      }
+    } catch (error) {
+      console.error('Error loading full product data:', error);
+      // Fallback navigation
+      onNavigate("results", {
+        productData: {
+          name: item.productName,
+          image: item.image,
+          brand: item.brand
+        },
+        fromHistory: true
+      });
+    }
   };
 
   return (
@@ -168,10 +211,13 @@ export function History({ onNavigate, user }: HistoryProps) {
               >
                 <div className="p-4 flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center shrink-0 overflow-hidden">
-                    {item.image ? (
+                    {item.image && item.image !== "/placeholder.svg" ? (
                       <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
                     ) : (
-                      <Camera className="h-6 w-6 text-muted-foreground" />
+                      <div className="text-center">
+                        <Camera className="h-6 w-6 text-muted-foreground mx-auto" />
+                        <span className="text-xs text-muted-foreground mt-1">No Image</span>
+                      </div>
                     )}
                   </div>
                   

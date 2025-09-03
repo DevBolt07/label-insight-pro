@@ -46,13 +46,22 @@ export function ProductCard({
   return (
     <Card className={cn("card-product group", className)}>
       {/* Product Image */}
-      <div className="relative aspect-[4/3] overflow-hidden">
-        <img 
-          src={image} 
-          alt={name}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="relative aspect-[4/3] overflow-hidden bg-muted/30 flex items-center justify-center">
+        {image ? (
+          <>
+            <img 
+              src={image} 
+              alt={name}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          </>
+        ) : (
+          <div className="text-center space-y-1">
+            <Scan className="h-8 w-8 text-muted-foreground mx-auto" />
+            <span className="text-xs text-muted-foreground">No Image</span>
+          </div>
+        )}
         
         {/* Badges */}
         <div className="absolute top-3 left-3 flex gap-2">
