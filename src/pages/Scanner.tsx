@@ -2,14 +2,16 @@ import { useState, useRef } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Camera, Upload, Scan, Image, Zap, Loader2 } from "lucide-react";
+import { Camera, Upload, Scan, Image, Zap, Loader2, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/barcode-scanner";
+import { OCRScanner } from "@/components/ocr-scanner";
 import { openFoodFactsService } from "@/services/openFoodFacts";
 import { BarcodeScanResult } from "@/hooks/useBarcodeScanner";
 import { useToast } from "@/hooks/use-toast";
 import { scanHistoryService } from "@/services/scanHistoryService";
 import { productService } from "@/services/productService";
+import { ocrService, OCRResult } from "@/services/ocrService";
 import type { User } from '@supabase/supabase-js';
 
 interface ScannerProps {
@@ -19,8 +21,9 @@ interface ScannerProps {
 
 export function Scanner({ onNavigate, user }: ScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
-  const [scanMode, setScanMode] = useState<"camera" | "upload" | "barcode">("camera");
+  const [scanMode, setScanMode] = useState<"camera" | "upload" | "barcode" | "ocr">("camera");
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [showOCRScanner, setShowOCRScanner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -119,6 +122,38 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     setShowBarcodeScanner(false);
   };
 
+  const handleOCRScan = () => {
+    setShowOCRScanner(true);
+  };
+
+  const handleOCRImageSelect = async (file: File) => {
+    setShowOCRScanner(false);
+    setIsScanning(true);
+
+    try {
+      const ocrResult: OCRResult = await ocrService.processImage(file);
+      
+      setIsScanning(false);
+      
+      onNavigate("results", {
+        ocrResult,
+        scanned: true,
+        scanMethod: 'ocr'
+      });
+    } catch (error) {
+      setIsScanning(false);
+      toast({
+        title: "OCR Error",
+        description: "Failed to process nutrition label. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleOCRScannerClose = () => {
+    setShowOCRScanner(false);
+  };
+
   const scanOptions = [
     {
       id: "camera",
@@ -135,6 +170,14 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       description: "Choose image from gallery",
       action: () => fileInputRef.current?.click(),
       gradient: "bg-gradient-healthy"
+    },
+    {
+      id: "ocr",
+      icon: FileText,
+      title: "Nutrition Label OCR",
+      description: "Extract text from nutrition labels",
+      action: handleOCRScan,
+      gradient: "bg-gradient-accent"
     },
     {
       id: "barcode",
@@ -273,6 +316,15 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           <BarcodeScanner
             onScanSuccess={handleBarcodeScanResult}
             onClose={handleBarcodeScannerClose}
+          />
+        )}
+
+        {/* OCR Scanner Modal */}
+        {showOCRScanner && (
+          <OCRScanner
+            onImageSelect={handleOCRImageSelect}
+            onClose={handleOCRScannerClose}
+            isProcessing={isScanning}
           />
         )}
       </div>
