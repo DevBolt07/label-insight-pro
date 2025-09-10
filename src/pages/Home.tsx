@@ -3,7 +3,7 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 import { ProductCard } from "@/components/ui/product-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Camera, Upload, Scan, Shield, Heart, Baby, Settings, TrendingUp, Loader2 } from "lucide-react";
+import { FileText, Scan, Shield, Heart, Baby, Settings, TrendingUp, Loader2, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { scanHistoryService } from "@/services/scanHistoryService";
 import { useToast } from "@/hooks/use-toast";
@@ -48,19 +48,11 @@ export function Home({ onNavigate, user }: HomeProps) {
 
   const quickActions = [
     {
-      id: "camera",
-      icon: Camera,
-      title: "Scan Label",
-      description: "Take photo of nutrition label",
+      id: "ocr",
+      icon: FileText,
+      title: "Nutrition Label OCR",
+      description: "Extract text from nutrition labels",
       gradient: "bg-gradient-primary",
-      onClick: () => onNavigate("scan")
-    },
-    {
-      id: "upload",
-      icon: Upload,
-      title: "Upload Image",
-      description: "Choose from gallery",
-      gradient: "bg-gradient-healthy",
       onClick: () => onNavigate("scan")
     },
     {

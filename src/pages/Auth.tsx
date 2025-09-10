@@ -242,7 +242,7 @@ export function Auth({ onNavigate }: AuthProps) {
                     <Input
                       id="signup-password"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Create password (6+ chars)"
+                      placeholder="Min 6 characters"
                       value={formData.password}
                       onChange={(e) => handleInputChange('password', e.target.value)}
                       required
