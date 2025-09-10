@@ -7,6 +7,12 @@ import { FileText, Scan, Shield, Heart, Baby, Settings, TrendingUp, Loader2, Cam
 import { cn } from "@/lib/utils";
 import { scanHistoryService } from "@/services/scanHistoryService";
 import { useToast } from "@/hooks/use-toast";
+import { BarcodeScanner } from "@/components/barcode-scanner";
+import { OCRScanner } from "@/components/ocr-scanner";
+import { openFoodFactsService } from "@/services/openFoodFacts";
+import { BarcodeScanResult } from "@/hooks/useBarcodeScanner";
+import { productService } from "@/services/productService";
+import { ocrService, OCRResult } from "@/services/ocrService";
 import type { User } from '@supabase/supabase-js';
 
 interface HomeProps {
@@ -23,6 +29,9 @@ export function Home({ onNavigate, user }: HomeProps) {
   });
   const [recentScans, setRecentScans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [showOCRScanner, setShowOCRScanner] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -46,6 +55,90 @@ export function Home({ onNavigate, user }: HomeProps) {
     }
   };
 
+  const handleOCRScan = () => {
+    setShowOCRScanner(true);
+  };
+
+  const handleBarcodeScan = () => {
+    setShowBarcodeScanner(true);
+  };
+
+  const handleBarcodeScanResult = async (result: BarcodeScanResult) => {
+    setShowBarcodeScanner(false);
+    setIsScanning(true);
+
+    try {
+      const productData = await openFoodFactsService.getProductByBarcode(result.code);
+      
+      if (productData) {
+        const savedProduct = await productService.createOrUpdateProduct({
+          barcode: result.code,
+          name: productData.name,
+          brand: productData.brand,
+          image_url: productData.image,
+          categories: productData.categories,
+          ingredients: productData.ingredients,
+          grade: productData.grade,
+          health_score: productData.healthScore,
+          nutriscore: productData.nutriscore,
+          nova_group: productData.nova_group,
+          allergens: productData.allergens,
+          additives: productData.additives,
+          health_warnings: productData.healthWarnings,
+          nutrition_facts: productData.nutritionFacts
+        });
+
+        await scanHistoryService.addScanToHistory({
+          user_id: user.id,
+          product_id: savedProduct.id,
+          scan_method: 'barcode'
+        });
+
+        setIsScanning(false);
+        onNavigate("results", {
+          productData,
+          scanned: true
+        });
+      } else {
+        setIsScanning(false);
+        toast({
+          title: "Product Not Found",
+          description: `No product found for barcode: ${result.code}`,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      setIsScanning(false);
+      toast({
+        title: "Scan Error",
+        description: "Failed to fetch product information. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleOCRImageSelect = async (file: File) => {
+    setShowOCRScanner(false);
+    setIsScanning(true);
+
+    try {
+      const ocrResult: OCRResult = await ocrService.processImage(file);
+      setIsScanning(false);
+      onNavigate("results", {
+        ocrResult,
+        scanned: true,
+        scanMethod: 'ocr'
+      });
+    } catch (error) {
+      setIsScanning(false);
+      toast({
+        title: "OCR Error",
+        description: "Failed to process nutrition label. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const quickActions = [
     {
       id: "ocr",
@@ -53,7 +146,7 @@ export function Home({ onNavigate, user }: HomeProps) {
       title: "Nutrition Label OCR",
       description: "Extract text from nutrition labels",
       gradient: "bg-gradient-primary",
-      onClick: () => onNavigate("scan")
+      onClick: handleOCRScan
     },
     {
       id: "barcode",
@@ -61,7 +154,7 @@ export function Home({ onNavigate, user }: HomeProps) {
       title: "Scan Barcode", 
       description: "Quick product lookup",
       gradient: "bg-gradient-warning",
-      onClick: () => onNavigate("scan")
+      onClick: handleBarcodeScan
     }
   ];
 
@@ -334,6 +427,23 @@ export function Home({ onNavigate, user }: HomeProps) {
             </Card>
           )}
         </div>
+
+        {/* Barcode Scanner Modal */}
+        {showBarcodeScanner && (
+          <BarcodeScanner
+            onScanSuccess={handleBarcodeScanResult}
+            onClose={() => setShowBarcodeScanner(false)}
+          />
+        )}
+
+        {/* OCR Scanner Modal */}
+        {showOCRScanner && (
+          <OCRScanner
+            onImageSelect={handleOCRImageSelect}
+            onClose={() => setShowOCRScanner(false)}
+            isProcessing={isScanning}
+          />
+        )}
       </div>
     </div>
   );
