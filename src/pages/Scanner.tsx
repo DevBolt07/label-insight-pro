@@ -1,8 +1,8 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Camera, Upload, Scan, Image, Zap, Loader2, FileText } from "lucide-react";
+import { Scan, Image, Zap, Loader2, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { OCRScanner } from "@/components/ocr-scanner";
@@ -21,41 +21,10 @@ interface ScannerProps {
 
 export function Scanner({ onNavigate, user }: ScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
-  const [scanMode, setScanMode] = useState<"camera" | "upload" | "barcode" | "ocr">("camera");
+  const [scanMode, setScanMode] = useState<"barcode" | "ocr">("ocr");
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [showOCRScanner, setShowOCRScanner] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Simulate processing
-      setIsScanning(true);
-      setTimeout(() => {
-        setIsScanning(false);
-        // Navigate to results with mock data
-        onNavigate("results", {
-          productName: "Sample Product",
-          image: URL.createObjectURL(file),
-          scanned: true
-        });
-      }, 2000);
-    }
-  };
-
-  const handleCameraCapture = () => {
-    setIsScanning(true);
-    // Simulate camera capture and processing
-    setTimeout(() => {
-      setIsScanning(false);
-      onNavigate("results", {
-        productName: "Captured Product",
-        image: "/placeholder.svg",
-        scanned: true
-      });
-    }, 3000);
-  };
 
   const handleBarcodeScanne = () => {
     setShowBarcodeScanner(true);
@@ -155,22 +124,6 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   };
 
   const scanOptions = [
-    {
-      id: "camera",
-      icon: Camera,
-      title: "Camera Scan",
-      description: "Take a photo of nutrition label",
-      action: handleCameraCapture,
-      gradient: "bg-gradient-primary"
-    },
-    {
-      id: "upload",
-      icon: Upload,
-      title: "Upload Image",
-      description: "Choose image from gallery",
-      action: () => fileInputRef.current?.click(),
-      gradient: "bg-gradient-healthy"
-    },
     {
       id: "ocr",
       icon: FileText,
@@ -301,15 +254,6 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
             </div>
           </div>
         </Card>
-
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
 
         {/* Barcode Scanner Modal */}
         {showBarcodeScanner && (
