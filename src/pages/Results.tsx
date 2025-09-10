@@ -513,6 +513,9 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                   </p>
                 </div>
               </Card>
+            )}
+          </TabsContent>
+
           {isOCRResult && (
             <>
               <TabsContent value="ocr-text" className="space-y-3 mt-4">
@@ -552,6 +555,8 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
               </TabsContent>
             </>
           )}
+
+          <TabsContent value="ingredients" className="space-y-3 mt-4">
             <Card className="card-material">
               <div className="p-6 space-y-3">
                 <h3 className="text-title-large text-foreground">Ingredients List</h3>
