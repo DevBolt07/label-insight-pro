@@ -1,1 +1,10 @@
 project_id = "dsuicavybrvrovlgfviz"
+
+[functions.analyze-nutrition-label]
+verify_jwt = false
+
+[functions.analyze-ingredient]
+verify_jwt = false
+
+[functions.health-chat]
+verify_jwt = false
