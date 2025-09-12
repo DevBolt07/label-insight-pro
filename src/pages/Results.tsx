@@ -3,18 +3,14 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 import { HealthScoreCard } from "@/components/ui/health-score-card";
 import { IngredientAlertCard, IngredientAlert } from "@/components/ui/ingredient-alert";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { IngredientModal } from "@/components/ui/ingredient-modal";
-import { HealthChatbot } from "@/components/health-chatbot";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye, MessageCircle } from "lucide-react";
+import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductData } from "@/services/openFoodFacts";
 import { OCRResult } from "@/services/ocrService";
-import { IngredientAnalysis, ingredientAnalysisService } from "@/services/ingredientAnalysisService";
 import { User } from "@supabase/supabase-js";
 
 interface ResultsProps {
@@ -91,11 +87,6 @@ const mockAlternatives = [
 ];
 
 export function Results({ onNavigate, user, data }: ResultsProps) {
-  const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
-  const [ingredientAnalysis, setIngredientAnalysis] = useState<IngredientAnalysis | null>(null);
-  const [isAnalyzingIngredient, setIsAnalyzingIngredient] = useState(false);
-  const [ingredientModalOpen, setIngredientModalOpen] = useState(false);
-
   const productData = data?.productData;
   const ocrResult = data?.ocrResult;
   const isOCRResult = data?.scanMethod === 'ocr' && ocrResult;
@@ -207,39 +198,6 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
 
   const handleDismissAlert = (id: string) => {
     setAlerts(prev => prev.filter(alert => alert.id !== id));
-  };
-
-  const handleIngredientClick = async (ingredientName: string) => {
-    setSelectedIngredient(ingredientName);
-    setIngredientModalOpen(true);
-    setIsAnalyzingIngredient(true);
-    setIngredientAnalysis(null);
-
-    try {
-      // Get user profile for personalized analysis (you can extend this)
-      const userProfile = {
-        healthConditions: [],
-        allergies: [],
-        dietaryRestrictions: []
-      };
-
-      const analysis = await ingredientAnalysisService.analyzeIngredient(
-        ingredientName,
-        userProfile
-      );
-      
-      setIngredientAnalysis(analysis);
-    } catch (error) {
-      console.error('Failed to analyze ingredient:', error);
-    } finally {
-      setIsAnalyzingIngredient(false);
-    }
-  };
-
-  const handleCloseIngredientModal = () => {
-    setIngredientModalOpen(false);
-    setSelectedIngredient(null);
-    setIngredientAnalysis(null);
   };
 
   // Parse ingredients into array
@@ -602,37 +560,19 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
             <Card className="card-material">
               <div className="p-6 space-y-3">
                 <h3 className="text-title-large text-foreground">Ingredients List</h3>
-                 {ingredientsList.length > 0 || (ocrResult?.ingredients && ocrResult.ingredients.length > 0) ? (
-                   <div className="flex flex-wrap gap-2">
-                     {/* Product ingredients */}
-                     {ingredientsList.map((ingredient, index) => (
-                       <Badge 
-                         key={`product-${index}`} 
-                         variant="outline" 
-                         className="text-xs cursor-pointer hover:bg-primary/10 transition-colors"
-                         onClick={() => handleIngredientClick(ingredient)}
-                       >
-                         {ingredient}
-                       </Badge>
-                     ))}
-                     
-                     {/* OCR extracted ingredients */}
-                     {ocrResult?.ingredients?.map((ingredient, index) => (
-                       <Badge 
-                         key={`ocr-${index}`} 
-                         variant="outline" 
-                         className="text-xs cursor-pointer hover:bg-primary/10 transition-colors bg-blue-50 border-blue-200"
-                         onClick={() => handleIngredientClick(ingredient)}
-                       >
-                         {ingredient}
-                       </Badge>
-                     ))}
-                   </div>
-                 ) : (
-                   <p className="text-sm text-muted-foreground">
-                     No ingredients information available
-                   </p>
-                 )}
+                {ingredientsList.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {ingredientsList.map((ingredient, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {ingredient}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No ingredients information available
+                  </p>
+                )}
                 
                 {/* Allergens */}
                 {productData?.allergens && productData.allergens.length > 0 && (
@@ -724,14 +664,6 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
             ))}
           </TabsContent>
         </Tabs>
-
-        {/* Ingredient Analysis Modal */}
-        <IngredientModal
-          isOpen={ingredientModalOpen}
-          onClose={handleCloseIngredientModal}
-          analysis={ingredientAnalysis}
-          isLoading={isAnalyzingIngredient}
-        />
       </div>
     </div>
   );
