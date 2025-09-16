@@ -1,4 +1,4 @@
-# main.py
+# main.py 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -18,9 +18,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
-
-# User profile model
+) 
+ 
+# User profile model  
 class UserProfile(BaseModel):
     age: int
     hasDiabetes: bool = False
