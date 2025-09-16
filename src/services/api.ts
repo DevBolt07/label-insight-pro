@@ -10,7 +10,7 @@ export interface UserProfile {
   hasHeartDisease: boolean;
   isPregnant: boolean;
   allergies: string[];
-}
+} 
 
 // Create a simpler interface for nutritional info to avoid the 'any' type issue
 export interface NutritionalInfo {

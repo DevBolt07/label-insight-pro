@@ -1,23 +1,4 @@
-import { useState, useEffect } from "react"; // Make sure useEffect is imported
-
-// Add this inside your Scanner component, right after the state declarations:
-useEffect(() => {
-  console.log('Scanner component mounted');
-  console.log('Backend API URL:', 'http://localhost:8000');
-  
-  // Test backend connection on component mount
-  const testBackend = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/api/health');
-      console.log('Backend health check:', response.status, response.statusText);
-    } catch (error) {
-      console.error('Backend health check failed:', error);
-    }
-  };
-  
-  testBackend();
-}, []);
-
+import { useState } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -358,3 +339,4 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     </div>
   );
 }
+
