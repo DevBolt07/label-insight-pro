@@ -1,4 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Make sure useEffect is imported
+
+// Add this inside your Scanner component, right after the state declarations:
+useEffect(() => {
+  console.log('Scanner component mounted');
+  console.log('Backend API URL:', 'http://localhost:8000');
+  
+  // Test backend connection on component mount
+  const testBackend = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/health');
+      console.log('Backend health check:', response.status, response.statusText);
+    } catch (error) {
+      console.error('Backend health check failed:', error);
+    }
+  };
+  
+  testBackend();
+}, []);
+
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,6 +32,8 @@ import { scanHistoryService } from "@/services/scanHistoryService";
 import { productService } from "@/services/productService";
 import { ocrService, OCRResult } from "@/services/ocrService";
 import type { User } from '@supabase/supabase-js';
+// ADD THIS IMPORT
+import { analyzeProductWithBackend, UserProfile } from "@/services/backendApi";
 
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
@@ -26,7 +47,8 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   const [showOCRScanner, setShowOCRScanner] = useState(false);
   const { toast } = useToast();
 
-  const handleBarcodeScanne = () => {
+  // FIX THE TYPO IN FUNCTION NAME
+  const handleBarcodeScan = () => {
     setShowBarcodeScanner(true);
   };
 
@@ -35,6 +57,66 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     setIsScanning(true);
 
     try {
+      // FIRST TRY TO USE YOUR BACKEND API
+      try {
+        // Create a basic user profile (you'll want to get this from user data later)
+        const userProfile: UserProfile = {
+          age: 30, // Default value - replace with actual user data
+          hasDiabetes: false,
+          hasHighBP: false,
+          isChild: false,
+          hasHeartDisease: false,
+          isPregnant: false,
+          allergies: []
+        };
+
+        const backendResult = await analyzeProductWithBackend(result.code, userProfile);
+        
+        // Save product to database using backend result
+        const savedProduct = await productService.createOrUpdateProduct({
+          barcode: result.code,
+          name: backendResult.product_name,
+          brand: "", // Backend doesn't provide brand yet
+          image_url: "", // Backend doesn't provide image yet
+          categories: [],
+          ingredients: backendResult.ingredients,
+          grade: "", // Calculate from health score if needed
+          health_score: backendResult.health_risk_score,
+          nutriscore: "", // Not provided by backend
+          nova_group: 0, // Not provided by backend
+          allergens: [], // Extract from ingredients if needed
+          additives: [], // Not provided by backend
+          health_warnings: backendResult.alerts,
+          nutrition_facts: backendResult.nutritional_info
+        });
+
+        // Add to scan history
+        await scanHistoryService.addScanToHistory({
+          user_id: user.id,
+          product_id: savedProduct.id,
+          scan_method: 'barcode'
+        });
+
+        setIsScanning(false);
+        
+        onNavigate("results", {
+          productData: {
+            ...savedProduct,
+            healthWarnings: backendResult.alerts,
+            suggestions: backendResult.suggestions
+          },
+          scanned: true,
+          fromBackend: true // Flag to indicate this came from your backend
+        });
+        
+        return; // Exit early since backend was successful
+        
+      } catch (backendError) {
+        console.log('Backend analysis failed, falling back to OpenFoodFacts:', backendError);
+        // If backend fails, fall back to OpenFoodFacts
+      }
+
+      // FALLBACK TO OPEN FOOD FACTS
       const productData = await openFoodFactsService.getProductByBarcode(result.code);
       
       if (productData) {
@@ -67,7 +149,8 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
         
         onNavigate("results", {
           productData,
-          scanned: true
+          scanned: true,
+          fromBackend: false // Flag to indicate this came from OpenFoodFacts
         });
       } else {
         setIsScanning(false);
@@ -137,7 +220,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       icon: Scan,
       title: "Barcode Scanner",
       description: "Scan product barcode",
-      action: handleBarcodeScanne,
+      action: handleBarcodeScan, // FIXED: Changed from handleBarcodeScanne to handleBarcodeScan
       gradient: "bg-gradient-warning"
     }
   ];
