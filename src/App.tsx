@@ -12,6 +12,7 @@ import { History } from "./pages/History";
 import { Auth } from "./pages/Auth";
 import { useAuth } from "./hooks/useAuth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useProductAnalysis } from "./hooks/useProductAnalysis";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,9 @@ const App = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [currentPage, setCurrentPage] = useState("home");
   const [pageData, setPageData] = useState<any>(null);
+  
+  // Use the product analysis hook
+  const { analyzeProduct, loading: analysisLoading } = useProductAnalysis();
 
   const handleNavigate = (page: string, data?: any) => {
     setCurrentPage(page);
@@ -32,11 +36,28 @@ const App = () => {
       "results": "scan", // Results page is part of scan flow
       "history": "history",
       "profile": "profile",
-      "settings": "settings"
+      "settings": "profile" // Settings goes to profile for now
     };
     
     if (tabMapping[page]) {
       setActiveTab(tabMapping[page]);
+    }
+  };
+
+  // Handle product scanning and analysis
+  const handleProductScan = async (barcode: string) => {
+    try {
+      // Get user's health conditions from profile
+      const healthConditions = user?.health_conditions || [];
+      
+      // Analyze the product
+      const productData = await analyzeProduct(barcode, healthConditions);
+      
+      // Navigate to results page with the data
+      handleNavigate("results", productData);
+    } catch (error) {
+      console.error("Error analyzing product:", error);
+      // You might want to show an error toast here
     }
   };
 
@@ -73,7 +94,7 @@ const App = () => {
       case "profile":
         return <Profile onNavigate={handleNavigate} user={user} />;
       case "scan":
-        return <Scanner onNavigate={handleNavigate} user={user} />;
+        return <Scanner onNavigate={handleNavigate} onProductScan={handleProductScan} loading={analysisLoading} user={user} />;
       case "results":
         return <Results onNavigate={handleNavigate} data={pageData} user={user} />;
       case "history":

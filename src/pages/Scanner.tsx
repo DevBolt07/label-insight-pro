@@ -13,7 +13,6 @@ import { scanHistoryService } from "@/services/scanHistoryService";
 import { productService } from "@/services/productService";
 import { ocrService, OCRResult } from "@/services/ocrService";
 import type { User } from '@supabase/supabase-js';
-// ADD THIS IMPORT
 import { analyzeProductWithBackend, UserProfile } from "@/services/backendApi";
 
 interface ScannerProps {
@@ -23,12 +22,10 @@ interface ScannerProps {
 
 export function Scanner({ onNavigate, user }: ScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
-  const [scanMode, setScanMode] = useState<"barcode" | "ocr">("ocr");
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [showOCRScanner, setShowOCRScanner] = useState(false);
   const { toast } = useToast();
 
-  // FIX THE TYPO IN FUNCTION NAME
   const handleBarcodeScan = () => {
     setShowBarcodeScanner(true);
   };
@@ -57,25 +54,26 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
         const savedProduct = await productService.createOrUpdateProduct({
           barcode: result.code,
           name: backendResult.product_name,
-          brand: "", // Backend doesn't provide brand yet
+          brand: backendResult.brand || "",
           image_url: "", // Backend doesn't provide image yet
           categories: [],
           ingredients: backendResult.ingredients,
-          grade: "", // Calculate from health score if needed
-          health_score: backendResult.health_risk_score,
-          nutriscore: "", // Not provided by backend
+          grade: backendResult.nutri_score || "",
+          health_score: backendResult.health_score,
+          nutriscore: backendResult.nutri_score || "",
           nova_group: 0, // Not provided by backend
           allergens: [], // Extract from ingredients if needed
           additives: [], // Not provided by backend
-          health_warnings: backendResult.alerts,
-          nutrition_facts: backendResult.nutritional_info
+          health_warnings: backendResult.alerts.map(alert => alert.message),
+          nutrition_facts: {} // You might want to extract this from Open Food Facts data
         });
 
-        // Add to scan history
-        await scanHistoryService.addScanToHistory({
+        // Add to scan history WITH COMPLETE PRODUCT DATA
+        await scanHistoryService.addScanWithProductData({
           user_id: user.id,
           product_id: savedProduct.id,
-          scan_method: 'barcode'
+          scan_method: 'barcode',
+          product_data: backendResult // Save the complete analysis
         });
 
         setIsScanning(false);
@@ -84,7 +82,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           productData: {
             ...savedProduct,
             healthWarnings: backendResult.alerts,
-            suggestions: backendResult.suggestions
+            suggestions: backendResult.personalized_recommendations
           },
           scanned: true,
           fromBackend: true // Flag to indicate this came from your backend
@@ -119,11 +117,25 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           nutrition_facts: productData.nutritionFacts
         });
 
-        // Add to scan history
-        await scanHistoryService.addScanToHistory({
+        // Add to scan history WITH COMPLETE PRODUCT DATA
+        await scanHistoryService.addScanWithProductData({
           user_id: user.id,
           product_id: savedProduct.id,
-          scan_method: 'barcode'
+          scan_method: 'barcode',
+          product_data: {
+            product_name: productData.name,
+            brand: productData.brand,
+            health_score: productData.healthScore,
+            ingredients: productData.ingredients,
+            alerts: productData.healthWarnings.map(warning => ({
+              type: "Warning",
+              message: warning,
+              severity: "medium"
+            })),
+            nutri_score: productData.nutriscore,
+            processing_level: productData.nova_group ? `NOVA ${productData.nova_group}` : "Unknown",
+            personalized_recommendations: []
+          }
         });
 
         setIsScanning(false);
@@ -166,6 +178,22 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     try {
       const ocrResult: OCRResult = await ocrService.processImage(file);
       
+      // Add to scan history for OCR scans (without product_id since it's not in database)
+      await scanHistoryService.addScanToHistory({
+        user_id: user.id,
+        scan_method: 'ocr',
+        product_data: {
+          product_name: "OCR Scanned Product",
+          brand: "",
+          health_score: ocrResult.healthAnalysis.healthScore,
+          ingredients: ocrResult.ingredients.map(ing => ({ name: ing, percentage: null, is_harmful: false, category: "unknown" })),
+          alerts: ocrResult.healthAnalysis.warnings.map(warning => ({ type: "Warning", message: warning, severity: "medium" })),
+          nutri_score: ocrResult.healthAnalysis.grade,
+          processing_level: "Unknown",
+          personalized_recommendations: ocrResult.healthAnalysis.recommendations
+        }
+      });
+
       setIsScanning(false);
       
       onNavigate("results", {
@@ -201,7 +229,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       icon: Scan,
       title: "Barcode Scanner",
       description: "Scan product barcode",
-      action: handleBarcodeScan, // FIXED: Changed from handleBarcodeScanne to handleBarcodeScan
+      action: handleBarcodeScan,
       gradient: "bg-gradient-warning"
     }
   ];
@@ -339,4 +367,3 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     </div>
   );
 }
-

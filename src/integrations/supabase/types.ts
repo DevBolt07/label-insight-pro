@@ -24,7 +24,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          product_id: string
+          product_id: string 
           user_id: string
         }
         Update: {
@@ -192,7 +192,7 @@ export type Database = {
         }
         Update: {
           age?: number | null
-          allergies?: string[] | null
+          allergies?: string[] | null 
           avatar_url?: string | null
           bmi?: number | null
           created_at?: string

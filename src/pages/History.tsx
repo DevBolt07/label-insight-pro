@@ -15,13 +15,39 @@ interface HistoryProps {
   user: User;
 }
 
-
 const gradeColors = {
   A: "bg-gradient-healthy text-healthy-foreground",
   B: "bg-gradient-healthy text-healthy-foreground", 
   C: "bg-gradient-warning text-warning-foreground",
   D: "bg-gradient-warning text-warning-foreground",
   E: "bg-gradient-danger text-danger-foreground"
+};
+
+// Simple HealthScoreBadge component (temporary fix)
+const HealthScoreBadge = ({ score, size = "md", className }: { score: number; size?: "sm" | "md" | "lg"; className?: string }) => {
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "text-healthy border-healthy bg-healthy/10";
+    if (score >= 60) return "text-moderate border-moderate bg-moderate/10";
+    if (score >= 40) return "text-warning border-warning bg-warning/10";
+    return "text-danger border-danger bg-danger/10";
+  };
+
+  const sizeClasses = {
+    sm: "h-6 px-2 text-xs",
+    md: "h-8 px-3 text-sm",
+    lg: "h-10 px-4 text-base"
+  };
+
+  return (
+    <div className={cn(
+      "inline-flex items-center justify-center rounded-full border font-semibold",
+      getScoreColor(score),
+      sizeClasses[size],
+      className
+    )}>
+      {score}/100
+    </div>
+  );
 };
 
 export function History({ onNavigate, user }: HistoryProps) {
@@ -48,7 +74,9 @@ export function History({ onNavigate, user }: HistoryProps) {
         grade: scan.products?.grade || "N/A",
         alerts: scan.products?.health_warnings?.length || 0,
         image: scan.products?.image_url || "/placeholder.svg",
-        category: scan.products?.categories?.split(',')[0] || "Food"
+        category: scan.products?.categories?.split(',')[0] || "Food",
+        productId: scan.product_id,
+        productData: scan.products
       }));
       setScanHistory(formattedHistory);
       setFilteredHistory(formattedHistory);
@@ -91,26 +119,23 @@ export function History({ onNavigate, user }: HistoryProps) {
 
   const handleItemClick = async (item: any) => {
     try {
-      // Get the full scan history item to access the product data
-      const fullHistory = await scanHistoryService.getUserScanHistory(user.id, 50);
-      const fullItem = fullHistory.find((scan: any) => scan.id === item.id);
-      
-      if (fullItem && (fullItem as any).products) {
-        const productData = (fullItem as any).products;
-        // Navigate with full product data for complete analysis
+      // If we have product data in the history item, use it
+      if (item.productData) {
         onNavigate("results", {
           productData: {
-            name: productData.name,
-            brand: productData.brand,
-            image: productData.image_url,
-            categories: productData.categories,
-            ingredients: productData.ingredients || "",
-            nutriscore: productData.nutriscore,
-            nova_group: productData.nova_group,
-            nutritionFacts: productData.nutrition_facts,
-            healthWarnings: productData.health_warnings || [],
-            allergens: productData.allergens || [],
-            additives: productData.additives || []
+            name: item.productData.name,
+            brand: item.productData.brand,
+            image: item.productData.image_url,
+            categories: item.productData.categories,
+            ingredients: item.productData.ingredients || "",
+            grade: item.productData.grade,
+            healthScore: item.productData.health_score,
+            nutriscore: item.productData.nutriscore,
+            nova_group: item.productData.nova_group,
+            nutritionFacts: item.productData.nutrition_facts || {},
+            healthWarnings: item.productData.health_warnings || [],
+            allergens: item.productData.allergens || [],
+            additives: item.productData.additives || []
           },
           fromHistory: true,
           scanned: true
@@ -127,7 +152,7 @@ export function History({ onNavigate, user }: HistoryProps) {
         });
       }
     } catch (error) {
-      console.error('Error loading full product data:', error);
+      console.error('Error loading product data:', error);
       // Fallback navigation
       onNavigate("results", {
         productData: {
@@ -228,9 +253,7 @@ export function History({ onNavigate, user }: HistoryProps) {
                         <p className="text-sm text-muted-foreground truncate">{item.brand}</p>
                       </div>
                       <div className="flex items-center gap-2 ml-2">
-                        <Badge className={cn("text-xs font-bold", gradeColors[item.grade])}>
-                          {item.grade}
-                        </Badge>
+                        <HealthScoreBadge score={item.score} size="sm" />
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
