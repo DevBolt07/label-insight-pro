@@ -3,9 +3,10 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 import { ProductCard } from "@/components/ui/product-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { FileText, Scan, Shield, Heart, Baby, Settings, TrendingUp, Loader2, Camera } from "lucide-react";
+import { FileText, Scan, Shield, Heart, Sparkles, Settings, TrendingUp, Loader2, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { scanHistoryService } from "@/services/scanHistoryService";
+import { recommendationService, SmartRecommendation } from "@/services/recommendationService";
 import { useToast } from "@/hooks/use-toast";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { OCRScanner } from "@/components/ocr-scanner";
@@ -28,7 +29,9 @@ export function Home({ onNavigate, user }: HomeProps) {
     return "Good evening";
   });
   const [recentScans, setRecentScans] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<SmartRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingRecs, setIsLoadingRecs] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [showOCRScanner, setShowOCRScanner] = useState(false);
@@ -36,6 +39,7 @@ export function Home({ onNavigate, user }: HomeProps) {
 
   useEffect(() => {
     loadRecentScans();
+    loadRecommendations();
   }, [user.id]);
 
   const loadRecentScans = async () => {
@@ -52,6 +56,18 @@ export function Home({ onNavigate, user }: HomeProps) {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadRecommendations = async () => {
+    try {
+      setIsLoadingRecs(true);
+      const recs = await recommendationService.getPersonalizedRecommendations(user.id);
+      setRecommendations(recs);
+    } catch (error) {
+      console.error('Error loading recommendations:', error);
+    } finally {
+      setIsLoadingRecs(false);
     }
   };
 
@@ -161,98 +177,39 @@ export function Home({ onNavigate, user }: HomeProps) {
   const healthFeatures = [
     {
       icon: Shield,
-      title: "AI Claim Checker",
-      description: "Detect contradictions in product claims"
+      title: "AI Analysis",
+      description: "Advanced ingredient analysis powered by AI"
     },
     {
       icon: Heart,
-      title: "Health Alerts",
-      description: "Personalized warnings based on your profile"
+      title: "Personalized Alerts",
+      description: "Health warnings based on your unique profile"
     },
     {
-      icon: Baby,
-      title: "Child Mode",
-      description: "Kid-friendly interface with safety focus"
+      icon: Sparkles,
+      title: "Smart Recommendations",
+      description: "Get healthier alternatives tailored for you"
     }
   ];
 
-  const featuredProducts = [
-    {
-      id: "1",
-      name: "Organic Tulsi Green Tea",
-      description: "Premium Indian Tulsi green tea with natural antioxidants and immunity boosters",
-      image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&h=300&fit=crop",
-      category: "Beverages",
-      score: 95,
-      grade: "A" as const,
-      price: "₹299",
-      trending: true,
-      amazonLink: "https://www.amazon.in/s?k=organic+tulsi+green+tea"
-    },
-    {
-      id: "2", 
-      name: "Whole Grain Dalia Cereal",
-      description: "Traditional Indian dalia with high fiber and natural ingredients, no artificial additives",
-      image: "https://images.unsplash.com/photo-1549741072-aae3d327526b?w=400&h=300&fit=crop",
-      category: "Breakfast",
-      score: 88,
-      grade: "A" as const,
-      price: "₹199",
-      amazonLink: "https://www.amazon.in/s?k=organic+dalia+cereal"
-    },
-    {
-      id: "3",
-      name: "Coconut Water (Fresh)",
-      description: "Pure coconut water from Kerala, rich in electrolytes and potassium, no added sugars",
-      image: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=400&h=300&fit=crop",
-      category: "Beverages", 
-      score: 92,
-      grade: "A" as const,
-      price: "₹45",
-      trending: true,
-      amazonLink: "https://www.amazon.in/s?k=fresh+coconut+water"
-    },
-    {
-      id: "4",
-      name: "Almonds & Dates Mix",
-      description: "Premium Kashmiri almonds with Medjool dates, perfect healthy snack with natural sweetness",
-      image: "https://images.unsplash.com/photo-1448043552756-e747b7a2b2b8?w=400&h=300&fit=crop",
-      category: "Snacks",
-      score: 90,
-      grade: "A" as const,
-      price: "₹599",
-      amazonLink: "https://www.amazon.in/s?k=kashmiri+almonds+dates"
-    }
-  ];
-
-  const handleAnalyzeProduct = (productId: string) => {
-    const product = featuredProducts.find(p => p.id === productId);
-    if (product) {
+  const handleAnalyzeRecommendation = (recommendationId: string) => {
+    const recommendation = recommendations.find(r => r.id === recommendationId);
+    if (recommendation) {
       onNavigate("results", {
         productData: {
-          name: product.name,
-          brand: "Featured Product",
-          image_url: product.image,
-          grade: product.grade,
-          health_score: product.score,
-          categories: product.category,
-          nutrition_facts: {
-            per_100g: {
-              energy: product.name.includes('Green Tea') ? '2 kcal' : product.name.includes('Coconut') ? '19 kcal' : product.name.includes('Almond') ? '576 kcal' : '350 kcal',
-              protein: product.name.includes('Almond') ? '21g' : '2.1g',
-              carbohydrates: product.name.includes('Green Tea') ? '0g' : product.name.includes('Coconut') ? '3.7g' : '60g',
-              fat: product.name.includes('Almond') ? '50g' : '0.2g',
-              fiber: product.name.includes('Almond') ? '12g' : '2g',
-              sugar: product.name.includes('Green Tea') ? '0g' : product.name.includes('Coconut') ? '2.6g' : '5g'
-            }
-          },
-          health_warnings: product.score > 85 ? [] : ['Contains natural sugars'],
-          ingredients: product.name.includes('Green Tea') ? 'Organic Green Tea Leaves, Tulsi Leaves' : 
-                      product.name.includes('Coconut') ? 'Fresh Coconut Water' :
-                      product.name.includes('Almond') ? 'Kashmiri Almonds, Medjool Dates' : 'Whole Grain Wheat, Natural Fibers'
+          name: recommendation.name,
+          brand: "Recommended Product",
+          image_url: recommendation.image,
+          grade: recommendation.grade,
+          health_score: recommendation.score,
+          categories: recommendation.category,
+          nutrition_facts: {},
+          health_warnings: [],
+          ingredients: recommendation.description
         },
-        amazonLink: product.amazonLink,
-        featured: true
+        amazonLink: recommendation.amazonLink,
+        featured: true,
+        recommendation: recommendation
       });
     }
   };
@@ -318,22 +275,48 @@ export function Home({ onNavigate, user }: HomeProps) {
           </div>
         </div>
 
-        {/* Featured Products */}
+        {/* Smart Recommendations */}
         <div className="space-y-4 animate-slide-up animate-stagger-2">
           <div className="flex items-center justify-between px-2">
-            <h3 className="text-title-large text-foreground font-semibold">Featured Products</h3>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary animate-pulse-glow" />
+              <h3 className="text-title-large text-foreground font-semibold">For You</h3>
+            </div>
             <TrendingUp className="h-5 w-5 text-primary" />
           </div>
-          <div className="grid gap-4">
-            {featuredProducts.map((product, index) => (
-              <ProductCard
-                key={product.id}
-                {...product}
-                onAnalyze={handleAnalyzeProduct}
-                className={cn("animate-scale-in", `animate-stagger-${index + 1}`)}
-              />
-            ))}
-          </div>
+          
+          {isLoadingRecs ? (
+            <Card className="card-material">
+              <div className="p-8 text-center space-y-3">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Finding personalized recommendations...
+                </p>
+              </div>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {recommendations.map((recommendation, index) => (
+                <ProductCard
+                  key={recommendation.id}
+                  id={recommendation.id}
+                  name={recommendation.name}
+                  description={`${recommendation.description} • ${recommendation.reason}`}
+                  image={recommendation.image}
+                  category={recommendation.category}
+                  score={recommendation.score}
+                  grade={recommendation.grade}
+                  price={recommendation.price}
+                  trending={recommendation.trending}
+                  amazonLink={recommendation.amazonLink}
+                  onAnalyze={handleAnalyzeRecommendation}
+                  className={cn("animate-scale-in hover-lift", `animate-stagger-${index + 1}`)}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Features Overview */}

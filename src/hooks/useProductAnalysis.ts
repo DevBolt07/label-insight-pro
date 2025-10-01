@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { analyzeProduct } from '../services/productService';
+import { analyzeProduct, ProductAnalysis } from '../services/productService';
 
 export const useProductAnalysis = () => {
   const [currentProduct, setCurrentProduct] = useState<ProductAnalysis | null>(null);

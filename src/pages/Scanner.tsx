@@ -18,6 +18,8 @@ import { analyzeProductWithBackend, UserProfile } from "@/services/backendApi";
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
   user: User;
+  onProductScan?: (barcode: string) => Promise<void>;
+  loading?: boolean;
 }
 
 export function Scanner({ onNavigate, user }: ScannerProps) {
@@ -54,26 +56,25 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
         const savedProduct = await productService.createOrUpdateProduct({
           barcode: result.code,
           name: backendResult.product_name,
-          brand: backendResult.brand || "",
-          image_url: "", // Backend doesn't provide image yet
-          categories: [],
-          ingredients: backendResult.ingredients,
-          grade: backendResult.nutri_score || "",
-          health_score: backendResult.health_score,
-          nutriscore: backendResult.nutri_score || "",
-          nova_group: 0, // Not provided by backend
-          allergens: [], // Extract from ingredients if needed
-          additives: [], // Not provided by backend
-          health_warnings: backendResult.alerts.map(alert => alert.message),
-          nutrition_facts: {} // You might want to extract this from Open Food Facts data
+          brand: "",
+          image_url: "",
+          categories: "",
+          ingredients: JSON.stringify(backendResult.ingredients),
+          grade: "",
+          health_score: backendResult.health_risk_score,
+          nutriscore: "",
+          nova_group: 0,
+          allergens: [],
+          additives: [],
+          health_warnings: backendResult.alerts,
+          nutrition_facts: backendResult.nutritional_info || {}
         });
 
-        // Add to scan history WITH COMPLETE PRODUCT DATA
-        await scanHistoryService.addScanWithProductData({
+        // Add to scan history
+        await scanHistoryService.addScanToHistory({
           user_id: user.id,
           product_id: savedProduct.id,
-          scan_method: 'barcode',
-          product_data: backendResult // Save the complete analysis
+          scan_method: 'barcode'
         });
 
         setIsScanning(false);
@@ -82,10 +83,10 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           productData: {
             ...savedProduct,
             healthWarnings: backendResult.alerts,
-            suggestions: backendResult.personalized_recommendations
+            suggestions: backendResult.suggestions
           },
           scanned: true,
-          fromBackend: true // Flag to indicate this came from your backend
+          fromBackend: true
         });
         
         return; // Exit early since backend was successful
@@ -117,25 +118,11 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           nutrition_facts: productData.nutritionFacts
         });
 
-        // Add to scan history WITH COMPLETE PRODUCT DATA
-        await scanHistoryService.addScanWithProductData({
+        // Add to scan history
+        await scanHistoryService.addScanToHistory({
           user_id: user.id,
           product_id: savedProduct.id,
-          scan_method: 'barcode',
-          product_data: {
-            product_name: productData.name,
-            brand: productData.brand,
-            health_score: productData.healthScore,
-            ingredients: productData.ingredients,
-            alerts: productData.healthWarnings.map(warning => ({
-              type: "Warning",
-              message: warning,
-              severity: "medium"
-            })),
-            nutri_score: productData.nutriscore,
-            processing_level: productData.nova_group ? `NOVA ${productData.nova_group}` : "Unknown",
-            personalized_recommendations: []
-          }
+          scan_method: 'barcode'
         });
 
         setIsScanning(false);
@@ -178,21 +165,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     try {
       const ocrResult: OCRResult = await ocrService.processImage(file);
       
-      // Add to scan history for OCR scans (without product_id since it's not in database)
-      await scanHistoryService.addScanToHistory({
-        user_id: user.id,
-        scan_method: 'ocr',
-        product_data: {
-          product_name: "OCR Scanned Product",
-          brand: "",
-          health_score: ocrResult.healthAnalysis.healthScore,
-          ingredients: ocrResult.ingredients.map(ing => ({ name: ing, percentage: null, is_harmful: false, category: "unknown" })),
-          alerts: ocrResult.healthAnalysis.warnings.map(warning => ({ type: "Warning", message: warning, severity: "medium" })),
-          nutri_score: ocrResult.healthAnalysis.grade,
-          processing_level: "Unknown",
-          personalized_recommendations: ocrResult.healthAnalysis.recommendations
-        }
-      });
+      // OCR scans don't have product_id, skip history for now
 
       setIsScanning(false);
       

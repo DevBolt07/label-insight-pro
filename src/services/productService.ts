@@ -39,18 +39,24 @@ export const analyzeProduct = async (barcode: string, healthConditions: string[]
       // Convert our database product to the analysis format
       return {
         product_name: existingProduct.name,
-        brand: existingProduct.brand,
-        health_score: existingProduct.health_score,
-        ingredients: existingProduct.ingredients as unknown as Ingredient[],
-        alerts: existingProduct.alerts as unknown as HealthAlert[],
-        nutri_score: existingProduct.nutri_score,
-        processing_level: existingProduct.processing_level,
-        personalized_recommendations: existingProduct.recommendations as string[],
+        brand: existingProduct.brand || '',
+        health_score: existingProduct.health_score || 0,
+        ingredients: typeof existingProduct.ingredients === 'string' 
+          ? [{ name: existingProduct.ingredients, percentage: null, is_harmful: false, category: 'unknown' }]
+          : [],
+        alerts: existingProduct.health_warnings?.map(w => ({ 
+          type: 'warning', 
+          message: w, 
+          severity: 'medium' 
+        })) || [],
+        nutri_score: existingProduct.nutriscore || '',
+        processing_level: existingProduct.nova_group ? `NOVA ${existingProduct.nova_group}` : 'Unknown',
+        personalized_recommendations: [],
         barcode: existingProduct.barcode
       };
     }
 
-    // If not in our database, fetch from Open Food Facts API
+    // If not in our database, fetch from backend API
     const response = await fetch('http://localhost:8000/analyze-product', {
       method: 'POST',
       headers: {
@@ -75,16 +81,14 @@ export const analyzeProduct = async (barcode: string, healthConditions: string[]
         name: productData.product_name,
         brand: productData.brand,
         health_score: productData.health_score,
-        ingredients: productData.ingredients,
-        alerts: productData.alerts,
-        nutri_score: productData.nutri_score,
-        processing_level: productData.processing_level,
-        recommendations: productData.personalized_recommendations,
-        is_verified: false // Mark as not verified since it's from external API
+        ingredients: JSON.stringify(productData.ingredients),
+        nutriscore: productData.nutri_score,
+        health_warnings: productData.alerts.map(a => a.message),
+        grade: productData.nutri_score,
+        is_verified: false
       });
     } catch (dbError) {
       console.error('Error saving product to database:', dbError);
-      // Continue even if saving fails
     }
     
     return productData;

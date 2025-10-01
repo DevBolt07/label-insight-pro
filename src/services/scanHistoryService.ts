@@ -54,30 +54,6 @@ export const scanHistoryService = {
     return data;
   },
 
-  async addScanWithProductData(
-    user_id: string, 
-    product_id: string, 
-    scan_method: string,
-    product_data: ProductAnalysis
-  ): Promise<ScanHistory> {
-    const { data, error } = await supabase
-      .from('scan_history')
-      .insert({
-        user_id,
-        product_id,
-        scan_method,
-        product_data // This stores the complete product analysis
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error adding scan to history:', error);
-      throw error;
-    }
-
-    return data;
-  },
 
   async deleteScanFromHistory(scanId: string, userId: string): Promise<void> {
     const { error } = await supabase
@@ -118,22 +94,4 @@ export const scanHistoryService = {
     return data || [];
   },
 
-  async getScanHistoryWithProductData(userId: string): Promise<(ScanHistory & { product_data: ProductAnalysis })[]> {
-    const { data, error } = await supabase
-      .from('scan_history')
-      .select('*')
-      .eq('user_id', userId)
-      .order('scanned_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching scan history:', error);
-      throw error;
-    }
-
-    // Cast the product_data to our ProductAnalysis type
-    return (data || []).map(item => ({
-      ...item,
-      product_data: item.product_data as unknown as ProductAnalysis
-    }));
-  }
 };

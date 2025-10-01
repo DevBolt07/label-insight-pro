@@ -10,6 +10,7 @@ import { Scanner } from "./pages/Scanner";
 import { Results } from "./pages/Results";
 import { History } from "./pages/History";
 import { Auth } from "./pages/Auth";
+import { Settings } from "./pages/Settings";
 import { useAuth } from "./hooks/useAuth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useProductAnalysis } from "./hooks/useProductAnalysis";
@@ -33,10 +34,10 @@ const App = () => {
     const tabMapping: Record<string, string> = {
       "home": "home",
       "scan": "scan", 
-      "results": "scan", // Results page is part of scan flow
+      "results": "scan",
       "history": "history",
       "profile": "profile",
-      "settings": "profile" // Settings goes to profile for now
+      "settings": "profile"
     };
     
     if (tabMapping[page]) {
@@ -47,17 +48,13 @@ const App = () => {
   // Handle product scanning and analysis
   const handleProductScan = async (barcode: string) => {
     try {
-      // Get user's health conditions from profile
-      const healthConditions = user?.health_conditions || [];
-      
-      // Analyze the product
-      const productData = await analyzeProduct(barcode, healthConditions);
+      // Analyze the product (health conditions will be fetched in the service)
+      const productData = await analyzeProduct(barcode, []);
       
       // Navigate to results page with the data
       handleNavigate("results", productData);
     } catch (error) {
       console.error("Error analyzing product:", error);
-      // You might want to show an error toast here
     }
   };
 
@@ -99,6 +96,8 @@ const App = () => {
         return <Results onNavigate={handleNavigate} data={pageData} user={user} />;
       case "history":
         return <History onNavigate={handleNavigate} user={user} />;
+      case "settings":
+        return <Settings onNavigate={handleNavigate} user={user} />;
       default:
         return <Home onNavigate={handleNavigate} user={user} />;
     }
@@ -121,7 +120,7 @@ const App = () => {
                 "scan": "scan",
                 "history": "history", 
                 "profile": "profile",
-                "settings": "profile" // Settings goes to profile for now
+                "settings": "settings"
               };
               if (pageMapping[tab]) {
                 handleNavigate(pageMapping[tab]);
