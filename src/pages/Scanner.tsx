@@ -204,6 +204,14 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       description: "Scan product barcode",
       action: handleBarcodeScan,
       gradient: "bg-gradient-warning"
+    },
+    {
+      id: "manual",
+      icon: Image,
+      title: "Manual Image Upload",
+      description: "Upload a photo from gallery",
+      action: handleOCRScan,
+      gradient: "bg-gradient-primary"
     }
   ];
 
