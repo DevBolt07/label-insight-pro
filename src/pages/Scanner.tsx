@@ -191,7 +191,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   const scanOptions = [
     {
       id: "ocr",
-      icon: Image,
+      icon: FileText,
       title: "Nutrition Label OCR",
       description: "Extract text from nutrition labels",
       action: handleOCRScan,
@@ -204,14 +204,6 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       description: "Scan product barcode",
       action: handleBarcodeScan,
       gradient: "bg-gradient-warning"
-    },
-    {
-      id: "manual",
-      icon: Image,
-      title: "Manual Image Upload",
-      description: "Upload a photo from gallery",
-      action: handleOCRScan,
-      gradient: "bg-gradient-primary"
     }
   ];
 
