@@ -508,7 +508,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
         <Tabs defaultValue="alerts" className="w-full">
           <TabsList className={cn(
             "grid w-full rounded-2xl",
-            isOCRResult ? "grid-cols-4" : "grid-cols-4"
+            isOCRResult ? "grid-cols-3" : "grid-cols-4"
           )}>
             <TabsTrigger value="alerts" className="rounded-xl">
               Alerts
@@ -520,12 +520,18 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
             </TabsTrigger>
             {isOCRResult ? (
               <>
-                <TabsTrigger value="ocr-text" className="rounded-xl">
-                  <Eye className="h-3 w-3 mr-1" />
-                  Text
+                <TabsTrigger value="ingredients" className="rounded-xl">
+                  Ingredients
+                  {ocrResult?.ingredients && ocrResult.ingredients.length > 0 && (
+                    <Badge variant="default" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
+                      {ocrResult.ingredients.length}
+                    </Badge>
+                  )}
                 </TabsTrigger>
-                <TabsTrigger value="recommendations" className="rounded-xl">Tips</TabsTrigger>
-                <TabsTrigger value="alternatives" className="rounded-xl">Better</TabsTrigger>
+                <TabsTrigger value="categorized" className="rounded-xl">
+                  <Eye className="h-3 w-3 mr-1" />
+                  Details
+                </TabsTrigger>
               </>
             ) : (
               <>
@@ -558,81 +564,162 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
             )}
           </TabsContent>
 
-          {isOCRResult && (
-            <>
-              <TabsContent value="ocr-text" className="space-y-3 mt-4">
+          {isOCRResult && ocrResult?.categorizedText && (
+            <TabsContent value="categorized" className="space-y-3 mt-4">
+              {/* Brand Name */}
+              {ocrResult.categorizedText.brand_name && (
                 <Card className="card-material">
-                  <div className="p-6 space-y-3">
-                    <h3 className="text-title-large text-foreground">Extracted Text</h3>
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                        {ocrResult?.text || "No text extracted"}
-                      </p>
+                  <div className="p-5 space-y-2">
+                    <h3 className="text-title-medium text-foreground font-semibold">Brand Name</h3>
+                    <p className="text-lg font-bold text-primary">{ocrResult.categorizedText.brand_name}</p>
+                  </div>
+                </Card>
+              )}
+
+              {/* Slogans */}
+              {ocrResult.categorizedText.slogans.length > 0 && (
+                <Card className="card-material">
+                  <div className="p-5 space-y-3">
+                    <h3 className="text-title-medium text-foreground font-semibold">Marketing Slogans</h3>
+                    <div className="space-y-2">
+                      {ocrResult.categorizedText.slogans.map((slogan, index) => (
+                        <div key={index} className="flex items-start gap-2 p-3 bg-accent/10 rounded-lg">
+                          <span className="text-accent text-lg">💬</span>
+                          <p className="text-sm text-muted-foreground italic">{slogan}</p>
+                        </div>
+                      ))}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Confidence: {Math.round(ocrResult?.confidence || 0)}%
+                  </div>
+                </Card>
+              )}
+
+              {/* Marketing Text */}
+              {ocrResult.categorizedText.marketing_text.length > 0 && (
+                <Card className="card-material">
+                  <div className="p-5 space-y-3">
+                    <h3 className="text-title-medium text-foreground font-semibold">Marketing Claims</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {ocrResult.categorizedText.marketing_text.map((text, index) => (
+                        <Badge key={index} variant="outline" className="text-xs bg-warning/10 border-warning/20">
+                          {text}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Nutrition Facts */}
+              {Object.keys(ocrResult.categorizedText.nutrition_facts).length > 0 && (
+                <Card className="card-material">
+                  <div className="p-5 space-y-3">
+                    <h3 className="text-title-medium text-foreground font-semibold">Extracted Nutrition Facts</h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      {Object.entries(ocrResult.categorizedText.nutrition_facts).map(([key, value]) => (
+                        <div key={key} className="flex justify-between p-2 bg-muted/30 rounded-lg">
+                          <span className="text-muted-foreground capitalize">{key}</span>
+                          <span className="font-medium">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Miscellaneous */}
+              {ocrResult.categorizedText.miscellaneous.length > 0 && (
+                <Card className="card-material">
+                  <div className="p-5 space-y-3">
+                    <h3 className="text-title-medium text-foreground font-semibold">Other Detected Text</h3>
+                    <div className="space-y-1">
+                      {ocrResult.categorizedText.miscellaneous.map((text, index) => (
+                        <div key={index} className="text-xs text-muted-foreground p-2 bg-muted/20 rounded">
+                          {text}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Raw Text */}
+              <Card className="card-material">
+                <div className="p-5 space-y-3">
+                  <h3 className="text-title-medium text-foreground font-semibold">Raw OCR Text</h3>
+                  <div className="bg-muted/30 rounded-lg p-4 max-h-60 overflow-y-auto">
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">
+                      {ocrResult?.rawText || ocrResult?.text || "No text extracted"}
                     </p>
                   </div>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="recommendations" className="space-y-3 mt-4">
-                <Card className="card-material">
-                  <div className="p-6 space-y-3">
-                    <h3 className="text-title-large text-foreground">Health Recommendations</h3>
-                    {ocrResult?.healthAnalysis.recommendations.length ? (
-                      <div className="space-y-2">
-                        {ocrResult.healthAnalysis.recommendations.map((rec, index) => (
-                          <div key={index} className="flex items-start gap-2">
-                            <CheckCircle className="h-4 w-4 text-healthy mt-0.5 shrink-0" />
-                            <p className="text-sm text-muted-foreground">{rec}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No specific recommendations available</p>
-                    )}
-                  </div>
-                </Card>
-              </TabsContent>
-            </>
+                  <p className="text-xs text-muted-foreground">
+                    OCR Confidence: {Math.round(ocrResult?.confidence || 0)}%
+                  </p>
+                </div>
+              </Card>
+            </TabsContent>
           )}
 
           <TabsContent value="ingredients" className="space-y-3 mt-4">
             <Card className="card-material">
-              <div className="p-6 space-y-3">
-                <h3 className="text-title-large text-foreground">Ingredients List</h3>
-                 {ingredientsList.length > 0 || (ocrResult?.ingredients && ocrResult.ingredients.length > 0) ? (
-                   <div className="flex flex-wrap gap-2">
-                     {/* Product ingredients */}
-                     {ingredientsList.map((ingredient, index) => (
-                       <Badge 
-                         key={`product-${index}`} 
-                         variant="outline" 
-                         className="text-xs cursor-pointer hover:bg-primary/10 transition-colors"
-                         onClick={() => handleIngredientClick(ingredient)}
-                       >
-                         {ingredient}
-                       </Badge>
-                     ))}
-                     
-                     {/* OCR extracted ingredients */}
-                     {ocrResult?.ingredients?.map((ingredient, index) => (
-                       <Badge 
-                         key={`ocr-${index}`} 
-                         variant="outline" 
-                         className="text-xs cursor-pointer hover:bg-primary/10 transition-colors bg-blue-50 border-blue-200"
-                         onClick={() => handleIngredientClick(ingredient)}
-                       >
-                         {ingredient}
-                       </Badge>
-                     ))}
-                   </div>
-                 ) : (
-                   <p className="text-sm text-muted-foreground">
-                     No ingredients information available
-                   </p>
-                 )}
+              <div className="p-6 space-y-4">
+                {isOCRResult && ocrResult?.ingredients && ocrResult.ingredients.length > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-title-large text-foreground font-semibold">Detected Ingredients</h3>
+                      <Badge variant="secondary" className="text-xs">
+                        {ocrResult.ingredients.length} found
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {ocrResult.ingredients.map((ingredient, index) => (
+                        <div 
+                          key={index}
+                          className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => handleIngredientClick(ingredient)}
+                        >
+                          <span className="text-xl font-bold text-primary/50">{index + 1}</span>
+                          <span className="text-sm font-medium text-foreground">{ingredient}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {ocrResult.healthAnalysis.recommendations.length > 0 && (
+                      <div className="pt-4 border-t border-border">
+                        <h4 className="text-sm font-medium text-foreground mb-3">Health Tips</h4>
+                        <div className="space-y-2">
+                          {ocrResult.healthAnalysis.recommendations.map((rec, index) => (
+                            <div key={index} className="flex items-start gap-2">
+                              <CheckCircle className="h-4 w-4 text-healthy mt-0.5 shrink-0" />
+                              <p className="text-xs text-muted-foreground">{rec}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : ingredientsList.length > 0 ? (
+                  <>
+                    <h3 className="text-title-large text-foreground">Ingredients List</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {ingredientsList.map((ingredient, index) => (
+                        <Badge 
+                          key={`product-${index}`} 
+                          variant="outline" 
+                          className="text-xs cursor-pointer hover:bg-primary/10 transition-colors"
+                          onClick={() => handleIngredientClick(ingredient)}
+                        >
+                          {ingredient}
+                        </Badge>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      No ingredients information available
+                    </p>
+                  </div>
+                )}
                 
                 {/* Allergens */}
                 {productData?.allergens && productData.allergens.length > 0 && (
