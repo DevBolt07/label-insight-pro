@@ -63,6 +63,7 @@ All colors MUST be HSL. Focus on health, safety, and nutrition.
     --gradient-warning: linear-gradient(135deg, hsl(var(--warning)), hsl(45 93% 57%));
     --gradient-danger: linear-gradient(135deg, hsl(var(--danger)), hsl(0 84% 70%));
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 14% 98%));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(174 100% 39%));
     
     /* Material Shadows */
     --shadow-sm: 0 1px 2px 0 hsl(var(--primary) / 0.05);
@@ -162,6 +163,16 @@ All colors MUST be HSL. Focus on health, safety, and nutrition.
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Safe area for mobile bottom navigation */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Elegant shadow for elevated elements */
+  .shadow-elegant {
+    box-shadow: 0 4px 20px -4px hsl(var(--primary) / 0.15), 0 2px 8px -2px hsl(0 0% 0% / 0.1);
   }
 
   /* Material Design Typography */

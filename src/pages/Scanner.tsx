@@ -191,7 +191,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   const scanOptions = [
     {
       id: "ocr",
-      icon: FileText,
+      icon: Image,
       title: "Nutrition Label OCR",
       description: "Extract text from nutrition labels",
       action: handleOCRScan,

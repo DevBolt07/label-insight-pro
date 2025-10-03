@@ -142,7 +142,7 @@ export function Auth({ onNavigate }: AuthProps) {
           </div>
         </div>
 
-        <Card className="card-material">
+        <Card className="card-material border-2 border-border shadow-elegant">
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="signin" className="flex items-center gap-2">
