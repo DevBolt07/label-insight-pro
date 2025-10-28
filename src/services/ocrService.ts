@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+// OCR Service using PaddleOCR backend
 
 export interface CategorizedText {
   brand_name?: string;
@@ -44,77 +44,49 @@ class OCRService {
       // Convert image to base64
       const base64Image = await this.fileToBase64(imageFile);
       
-      // Try PaddleOCR backend first
-      try {
-        console.log('Attempting PaddleOCR analysis...');
-        const backendResponse = await fetch('http://localhost:8000/analyze-image-base64', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ image: base64Image }),
-        });
-
-        if (backendResponse.ok) {
-          const backendData = await backendResponse.json();
-          console.log('PaddleOCR analysis successful:', backendData);
-          
-          // Calculate health score based on ingredients
-          const healthScore = this.calculateHealthScore(backendData.ingredients);
-          const grade = this.getGradeFromScore(healthScore);
-          
-          return {
-            text: backendData.raw_text || '',
-            confidence: backendData.confidence || 0,
-            nutritionData: this.extractNutritionFromFacts(backendData.categorized_text.nutrition_facts),
-            healthAnalysis: {
-              healthScore,
-              grade,
-              warnings: this.generateWarnings(backendData.ingredients),
-              recommendations: this.generateRecommendations(backendData.ingredients)
-            },
-            ingredients: backendData.ingredients || [],
-            claims: backendData.categorized_text.marketing_text || [],
-            contradictions: [],
-            categorizedText: backendData.categorized_text,
-            rawText: backendData.raw_text
-          };
-        }
-      } catch (backendError) {
-        console.log('PaddleOCR failed, falling back to OpenAI Vision:', backendError);
-      }
-
-      // Fallback to OpenAI Vision API via Supabase edge function
-      const { data, error } = await supabase.functions.invoke('analyze-nutrition-label', {
-        body: { imageBase64: base64Image }
+      console.log('Starting PaddleOCR analysis...');
+      const backendResponse = await fetch('http://localhost:8000/analyze-image-base64', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: base64Image }),
       });
 
-      if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(`Analysis failed: ${error.message}`);
+      if (!backendResponse.ok) {
+        const errorText = await backendResponse.text();
+        throw new Error(`PaddleOCR backend error: ${backendResponse.status} - ${errorText}`);
       }
 
-      if (!data) {
-        throw new Error('No data received from analysis');
-      }
-
+      const backendData = await backendResponse.json();
+      console.log('PaddleOCR analysis successful:', backendData);
+      
+      // Calculate health score based on ingredients
+      const healthScore = this.calculateHealthScore(backendData.ingredients);
+      const grade = this.getGradeFromScore(healthScore);
+      
       return {
-        text: data.text || '',
-        confidence: data.confidence || 95,
-        nutritionData: data.nutritionData || null,
-        healthAnalysis: data.healthAnalysis || {
-          healthScore: 50,
-          grade: 'C' as const,
-          warnings: ['Analysis incomplete'],
-          recommendations: ['Please try again with a clearer image']
+        text: backendData.raw_text || '',
+        confidence: backendData.confidence || 0,
+        nutritionData: this.extractNutritionFromFacts(backendData.categorized_text.nutrition_facts),
+        healthAnalysis: {
+          healthScore,
+          grade,
+          warnings: this.generateWarnings(backendData.ingredients),
+          recommendations: this.generateRecommendations(backendData.ingredients)
         },
-        ingredients: data.ingredients || [],
-        claims: data.claims || [],
-        contradictions: data.contradictions || []
+        ingredients: backendData.ingredients || [],
+        claims: backendData.categorized_text.marketing_text || [],
+        contradictions: [],
+        categorizedText: backendData.categorized_text,
+        rawText: backendData.raw_text
       };
     } catch (error) {
       console.error('OCR processing error:', error);
-      throw new Error('Failed to process image with OCR analysis');
+      if (error instanceof Error) {
+        throw new Error(`Failed to process image: ${error.message}. Make sure the Python backend is running on http://localhost:8000`);
+      }
+      throw new Error('Failed to process image with PaddleOCR. Please ensure the backend server is running.');
     }
   }
 
@@ -217,7 +189,7 @@ class OCRService {
   }
 
   async cleanup() {
-    // No cleanup needed for GPT-4 Vision API
+    // No cleanup needed for PaddleOCR
   }
 }
 
