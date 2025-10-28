@@ -39,59 +39,8 @@ export const recommendationService = {
       // Filter and personalize recommendations based on user profile
       const recommendations: SmartRecommendation[] = [];
       
-      // Default healthy recommendations for Indian market
-      const defaultRecommendations: SmartRecommendation[] = [
-        {
-          id: "rec_1",
-          name: "Organic Tulsi Green Tea",
-          description: "Premium Indian Tulsi green tea with natural antioxidants and immunity boosters",
-          image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&h=300&fit=crop",
-          category: "Beverages",
-          score: 95,
-          grade: "A",
-          price: "₹299",
-          trending: true,
-          reason: "High in antioxidants, supports immunity",
-          amazonLink: "https://www.amazon.in/s?k=organic+tulsi+green+tea"
-        },
-        {
-          id: "rec_2",
-          name: "Quinoa & Oats Mix",
-          description: "Protein-rich breakfast blend with ancient grains and modern nutrition",
-          image: "https://images.unsplash.com/photo-1549741072-aae3d327526b?w=400&h=300&fit=crop",
-          category: "Breakfast",
-          score: 92,
-          grade: "A",
-          price: "₹349",
-          reason: "High protein, gluten-free option",
-          amazonLink: "https://www.amazon.in/s?k=quinoa+oats+breakfast"
-        },
-        {
-          id: "rec_3",
-          name: "Fresh Coconut Water",
-          description: "Pure coconut water from Kerala, rich in electrolytes and potassium",
-          image: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=400&h=300&fit=crop",
-          category: "Beverages",
-          score: 93,
-          grade: "A",
-          price: "₹45",
-          trending: true,
-          reason: "Natural electrolytes, no added sugar",
-          amazonLink: "https://www.amazon.in/s?k=fresh+coconut+water"
-        },
-        {
-          id: "rec_4",
-          name: "Millet Energy Bars",
-          description: "Traditional millets with dates and nuts for sustained energy",
-          image: "https://images.unsplash.com/photo-1448043552756-e747b7a2b2b8?w=400&h=300&fit=crop",
-          category: "Snacks",
-          score: 89,
-          grade: "A",
-          price: "₹249",
-          reason: "Low glycemic index, high fiber",
-          amazonLink: "https://www.amazon.in/s?k=millet+energy+bars"
-        }
-      ];
+      // No default recommendations - only show real scanned products
+      const defaultRecommendations: SmartRecommendation[] = [];
 
       // Personalize based on health conditions
       if (profile) {
@@ -135,21 +84,8 @@ export const recommendationService = {
     } catch (error) {
       console.error('Error getting personalized recommendations:', error);
       
-      // Return fallback recommendations
-      return [
-        {
-          id: "fallback_1",
-          name: "Organic Green Tea",
-          description: "Pure organic green tea with natural antioxidants",
-          image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&h=300&fit=crop",
-          category: "Beverages",
-          score: 95,
-          grade: "A",
-          price: "₹250",
-          reason: "Recommended for overall health",
-          amazonLink: "https://www.amazon.in/s?k=organic+green+tea"
-        }
-      ];
+      // Return empty array - no fallback recommendations
+      return [];
     }
   },
 

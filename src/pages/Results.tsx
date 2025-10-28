@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye, MessageCircle } from "lucide-react";
+import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye, MessageCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductData } from "@/services/openFoodFacts";
 import { OCRResult } from "@/services/ocrService";
@@ -30,65 +30,7 @@ interface ResultsProps {
   };
 }
 
-const mockIngredients = [
-  "Water", "Sugar", "High Fructose Corn Syrup", "Citric Acid", "Natural Flavors", 
-  "Sodium Benzoate", "Caffeine", "Artificial Colors (Red 40, Blue 1)", "Sucralose"
-];
-
-const mockAlerts: IngredientAlert[] = [
-  {
-    id: "1",
-    ingredient: "High Fructose Corn Syrup",
-    alias: "HFCS",
-    reason: "High sugar content may spike blood glucose levels rapidly. Consider limiting intake if you have diabetes.",
-    severity: "high",
-    userProfile: ["Diabetes"]
-  },
-  {
-    id: "2", 
-    ingredient: "Artificial Colors (Red 40, Blue 1)",
-    reason: "Artificial food dyes may cause hyperactivity in children and allergic reactions in sensitive individuals.",
-    severity: "medium",
-    userProfile: ["Child Mode"]
-  },
-  {
-    id: "3",
-    ingredient: "Sodium Benzoate",
-    alias: "E211",
-    reason: "Preservative that may form benzene when combined with vitamin C. Generally safe but worth monitoring.",
-    severity: "low"
-  }
-];
-
-const mockContradictions = [
-  {
-    claim: "Sugar-Free",
-    reality: "Contains High Fructose Corn Syrup and Sucralose",
-    severity: "high" as const
-  },
-  {
-    claim: "Natural Flavors",
-    reality: "Contains artificial preservatives and colors",
-    severity: "medium" as const
-  }
-];
-
-const mockAlternatives = [
-  {
-    name: "Organic Fruit Juice",
-    score: 85,
-    grade: "A" as const,
-    price: "$3.99",
-    store: "Whole Foods"
-  },
-  {
-    name: "Sparkling Water with Real Fruit",
-    score: 92,
-    grade: "A" as const,
-    price: "$2.49",
-    store: "Target"
-  }
-];
+// No mock data - all data comes from real scans and API
 
 export function Results({ onNavigate, user, data }: ResultsProps) {
   const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
@@ -758,57 +700,31 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
           </TabsContent>
 
           <TabsContent value="claims" className="space-y-3 mt-4">
-            {mockContradictions.map((contradiction, index) => (
-              <Card key={index} className="card-material">
-                <div className="p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <XCircle className={cn(
-                      "h-5 w-5",
-                      contradiction.severity === "high" ? "text-danger" : "text-warning"
-                    )} />
-                    <h4 className="font-medium text-foreground">Claim Contradiction</h4>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Claim: </span>
-                      <span className="font-medium">{contradiction.claim}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Reality: </span>
-                      <span className="text-foreground">{contradiction.reality}</span>
-                    </div>
-                  </div>
+            <Card className="card-material">
+              <div className="p-8 text-center space-y-3">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center">
+                  <AlertTriangle className="h-8 w-8 text-muted-foreground" />
                 </div>
-              </Card>
-            ))}
+                <h4 className="font-semibold text-foreground">No Claims Data</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Claim verification will be available after scanning products.
+                </p>
+              </div>
+            </Card>
           </TabsContent>
 
           <TabsContent value="alternatives" className="space-y-3 mt-4">
-            {mockAlternatives.map((alternative, index) => (
-              <Card key={index} className="card-material">
-                <div className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-foreground">{alternative.name}</h4>
-                      <p className="text-sm text-muted-foreground">{alternative.store}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-gradient-healthy text-healthy-foreground">
-                          {alternative.grade}
-                        </Badge>
-                        <span className="text-sm font-medium">{alternative.score}</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{alternative.price}</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" className="w-full">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Order Online
-                  </Button>
+            <Card className="card-material">
+              <div className="p-8 text-center space-y-3">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center">
+                  <Sparkles className="h-8 w-8 text-muted-foreground" />
                 </div>
-              </Card>
-            ))}
+                <h4 className="font-semibold text-foreground">No Alternatives Yet</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Healthier alternatives will be suggested based on your scans.
+                </p>
+              </div>
+            </Card>
           </TabsContent>
         </Tabs>
 

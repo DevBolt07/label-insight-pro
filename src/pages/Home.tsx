@@ -296,7 +296,7 @@ export function Home({ onNavigate, user }: HomeProps) {
                 </p>
               </div>
             </Card>
-          ) : (
+          ) : recommendations.length > 0 ? (
             <div className="grid gap-4">
               {recommendations.map((recommendation, index) => (
                 <ProductCard
@@ -316,6 +316,18 @@ export function Home({ onNavigate, user }: HomeProps) {
                 />
               ))}
             </div>
+          ) : (
+            <Card className="card-material">
+              <div className="p-8 text-center space-y-3">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center">
+                  <Sparkles className="h-8 w-8 text-primary" />
+                </div>
+                <h4 className="font-semibold text-foreground">No recommendations yet</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Start scanning products to get personalized recommendations!
+                </p>
+              </div>
+            </Card>
           )}
         </div>
 
