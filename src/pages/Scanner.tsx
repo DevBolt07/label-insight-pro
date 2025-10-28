@@ -176,10 +176,15 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       });
     } catch (error) {
       setIsScanning(false);
+      const errorMessage = error instanceof Error ? error.message : "Failed to process nutrition label";
+      
       toast({
-        title: "OCR Error",
-        description: "Failed to process nutrition label. Please try again.",
-        variant: "destructive"
+        title: "Backend Not Running",
+        description: errorMessage.includes('backend') || errorMessage.includes('localhost:8000')
+          ? "Please start the Python backend server first. Run: cd backend && python main.py"
+          : errorMessage,
+        variant: "destructive",
+        duration: 8000,
       });
     }
   };
