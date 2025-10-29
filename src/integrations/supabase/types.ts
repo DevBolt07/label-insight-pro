@@ -24,7 +24,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          product_id: string 
+          product_id: string
           user_id: string
         }
         Update: {
@@ -150,6 +150,7 @@ export type Database = {
       profiles: {
         Row: {
           age: number | null
+          age_group: string | null
           allergies: string[] | null
           avatar_url: string | null
           bmi: number | null
@@ -157,6 +158,7 @@ export type Database = {
           custom_allergies: string[] | null
           custom_dietary_preferences: string[] | null
           custom_health_conditions: string[] | null
+          dietary_preferences: string[] | null
           dietary_restrictions: string[] | null
           display_name: string | null
           first_name: string | null
@@ -165,12 +167,14 @@ export type Database = {
           id: string
           last_name: string | null
           nutrition_goals: Json | null
+          onboarding_completed: boolean | null
           updated_at: string
           user_id: string
           weight_kg: number | null
         }
         Insert: {
           age?: number | null
+          age_group?: string | null
           allergies?: string[] | null
           avatar_url?: string | null
           bmi?: number | null
@@ -178,6 +182,7 @@ export type Database = {
           custom_allergies?: string[] | null
           custom_dietary_preferences?: string[] | null
           custom_health_conditions?: string[] | null
+          dietary_preferences?: string[] | null
           dietary_restrictions?: string[] | null
           display_name?: string | null
           first_name?: string | null
@@ -186,19 +191,22 @@ export type Database = {
           id?: string
           last_name?: string | null
           nutrition_goals?: Json | null
+          onboarding_completed?: boolean | null
           updated_at?: string
           user_id: string
           weight_kg?: number | null
         }
         Update: {
           age?: number | null
-          allergies?: string[] | null 
+          age_group?: string | null
+          allergies?: string[] | null
           avatar_url?: string | null
           bmi?: number | null
           created_at?: string
           custom_allergies?: string[] | null
           custom_dietary_preferences?: string[] | null
           custom_health_conditions?: string[] | null
+          dietary_preferences?: string[] | null
           dietary_restrictions?: string[] | null
           display_name?: string | null
           first_name?: string | null
@@ -207,6 +215,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           nutrition_goals?: Json | null
+          onboarding_completed?: boolean | null
           updated_at?: string
           user_id?: string
           weight_kg?: number | null

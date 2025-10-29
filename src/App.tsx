@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BottomNavigation } from "@/components/ui/bottom-navigation";
 import { Home } from "./pages/Home";
 import { Profile } from "./pages/Profile";
@@ -11,9 +11,11 @@ import { Results } from "./pages/Results";
 import { History } from "./pages/History";
 import { Auth } from "./pages/Auth";
 import { Settings } from "./pages/Settings";
+import { Onboarding } from "./pages/Onboarding";
 import { useAuth } from "./hooks/useAuth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useProductAnalysis } from "./hooks/useProductAnalysis";
+import { supabase } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
 
@@ -22,9 +24,38 @@ const App = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [currentPage, setCurrentPage] = useState("home");
   const [pageData, setPageData] = useState<any>(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
   
   // Use the product analysis hook
   const { analyzeProduct, loading: analysisLoading } = useProductAnalysis();
+
+  // Check if user has completed onboarding
+  useEffect(() => {
+    if (user) {
+      checkOnboardingStatus();
+    }
+  }, [user]);
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error) throw error;
+      setOnboardingCompleted(data?.onboarding_completed ?? false);
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      setOnboardingCompleted(false);
+    }
+  };
+
+  const handleOnboardingComplete = () => {
+    setOnboardingCompleted(true);
+    handleNavigate('home');
+  };
 
   const handleNavigate = (page: string, data?: any) => {
     setCurrentPage(page);
@@ -79,6 +110,31 @@ const App = () => {
           <Toaster />
           <Sonner />
           <Auth onNavigate={handleNavigate} />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  // Show onboarding if not completed
+  if (onboardingCompleted === null) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <LoadingSpinner size="lg" />
+          </div>
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  if (!onboardingCompleted) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Onboarding onComplete={handleOnboardingComplete} />
         </TooltipProvider>
       </QueryClientProvider>
     );
