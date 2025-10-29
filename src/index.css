@@ -167,11 +167,11 @@ All colors MUST be HSL. Focus on health, safety, and nutrition.
 
   /* Safe area for mobile bottom navigation */
   .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
   }
 
   .pb-safe {
-    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    padding-bottom: max(6rem, calc(5rem + env(safe-area-inset-bottom)));
   }
 
   /* Elegant shadow for elevated elements */
