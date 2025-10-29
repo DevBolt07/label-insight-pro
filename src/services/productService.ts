@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
+import { getBackendEndpoint } from '@/config/backend';
 
 type Product = Database['public']['Tables']['products']['Row'];
 type ProductInsert = Database['public']['Tables']['products']['Insert'];
@@ -57,7 +58,7 @@ export const analyzeProduct = async (barcode: string, healthConditions: string[]
     }
 
     // If not in our database, fetch from backend API
-    const response = await fetch('http://localhost:8000/analyze-product', {
+    const response = await fetch(getBackendEndpoint('/analyze-product'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -160,15 +161,14 @@ export const productService = {
     return data || [];
   },
 
-  // Method to search products by name using Open Food Facts API
   async searchProduct(productName: string): Promise<any[]> {
     try {
-      const response = await fetch(`http://localhost:8000/search-product/${encodeURIComponent(productName)}`);
-      
+      const response = await fetch(getBackendEndpoint(`/search-product/${encodeURIComponent(productName)}`));
+
       if (!response.ok) {
         throw new Error('Search failed');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error searching product:', error);

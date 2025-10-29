@@ -42,7 +42,7 @@ const App = () => {
         .from('profiles')
         .select('onboarding_completed')
         .eq('user_id', user?.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       setOnboardingCompleted(data?.onboarding_completed ?? false);

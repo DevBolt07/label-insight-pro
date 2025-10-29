@@ -1,5 +1,4 @@
-// Simple API service for your backend
-const API_BASE_URL = 'http://localhost:8000';
+import { getBackendEndpoint, getBackendUrl } from '@/config/backend';
 
 export interface UserProfile {
   age: number;
@@ -24,7 +23,7 @@ export const analyzeProductWithBackend = async (barcode: string, userProfile: Us
   try {
     console.log('Sending analysis request to backend...');
     
-    const response = await fetch(`${API_BASE_URL}/api/analyze`, {
+    const response = await fetch(getBackendEndpoint('/analyze-product'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -51,7 +50,7 @@ export const analyzeProductWithBackend = async (barcode: string, userProfile: Us
 
 export const checkBackendHealth = async (): Promise<boolean> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/health`);
+    const response = await fetch(getBackendUrl());
     return response.ok;
   } catch (error) {
     console.error('Backend server is not responding:', error);

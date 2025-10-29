@@ -1,4 +1,4 @@
-// OCR Service using PaddleOCR backend
+import { getBackendEndpoint } from '@/config/backend';
 
 export interface CategorizedText {
   brand_name?: string;
@@ -45,7 +45,7 @@ class OCRService {
       const base64Image = await this.fileToBase64(imageFile);
       
       console.log('Starting PaddleOCR analysis...');
-      const backendResponse = await fetch('http://localhost:8000/analyze-image-base64', {
+      const backendResponse = await fetch(getBackendEndpoint('/analyze-image-base64'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ class OCRService {
     } catch (error) {
       console.error('OCR processing error:', error);
       if (error instanceof Error) {
-        throw new Error(`Failed to process image: ${error.message}. Make sure the Python backend is running on http://localhost:8000`);
+        throw new Error(`Failed to process image: ${error.message}. Make sure the Python backend is running.`);
       }
       throw new Error('Failed to process image with PaddleOCR. Please ensure the backend server is running.');
     }

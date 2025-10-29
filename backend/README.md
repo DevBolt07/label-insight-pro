@@ -127,9 +127,91 @@ uvicorn.run(app, host="0.0.0.0", port=8001)
 
 ## Development
 
+### Running with npm scripts (Recommended)
+
+From the project root directory:
+
+```bash
+# Install Python dependencies
+npm run backend:install
+
+# Start the backend server
+npm run backend:start
+
+# Run both frontend and backend together
+npm run dev:all
+```
+
+### Running with shell scripts
+
+**Unix/Mac:**
+```bash
+cd backend
+./start.sh
+```
+
+**Windows:**
+```batch
+cd backend
+start.bat
+```
+
 The backend automatically reloads when code changes are detected (when run with `uvicorn --reload`).
 
-For production deployment, use:
-```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+## Production Deployment
+
+### Environment Configuration
+
+1. Update frontend `.env` file with production backend URL:
 ```
+VITE_BACKEND_URL=https://your-backend-server.com
+```
+
+2. Update CORS settings in `main.py`:
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://your-frontend-domain.com"],  # Replace with actual domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+### Deployment Checklist
+
+- [ ] Set production backend URL in frontend `.env`
+- [ ] Update CORS origins in `backend/main.py`
+- [ ] Install Python dependencies: `pip install -r requirements.txt`
+- [ ] Test backend health endpoint: `curl https://your-backend-server.com/`
+- [ ] Verify OCR endpoint is accessible from frontend
+- [ ] Configure SSL/TLS certificates for HTTPS
+- [ ] Set up process manager (PM2, systemd, or supervisor)
+- [ ] Configure reverse proxy (nginx or similar)
+
+### Production Server
+
+For production deployment, use a production-ready server:
+
+```bash
+# Using uvicorn with multiple workers
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+
+# Or using gunicorn with uvicorn workers
+gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+```
+
+### Recommended Hosting Options
+
+- **VPS/Cloud**: AWS EC2, Google Cloud Compute, DigitalOcean Droplets
+- **Platform as a Service**: Railway, Render, Heroku
+- **Serverless**: AWS Lambda with API Gateway (requires modifications)
+
+### Health Check
+
+The root endpoint `/` returns a simple health check message:
+```json
+{"message": "NutriLabel Analyzer API is running"}
+```
+
+Use this endpoint to verify the backend is running and accessible.

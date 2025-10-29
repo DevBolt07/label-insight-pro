@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Scan, Image, Zap, Loader2, FileText } from "lucide-react";
+import { Scan, Image, Zap, Loader2, FileText, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { OCRScanner } from "@/components/ocr-scanner";
@@ -14,6 +14,8 @@ import { productService } from "@/services/productService";
 import { ocrService, OCRResult } from "@/services/ocrService";
 import type { User } from '@supabase/supabase-js';
 import { analyzeProductWithBackend, UserProfile } from "@/services/backendApi";
+import { useBackendHealth } from "@/hooks/useBackendHealth";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
@@ -27,6 +29,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [showOCRScanner, setShowOCRScanner] = useState(false);
   const { toast } = useToast();
+  const { isHealthy: isBackendHealthy, isChecking: checkingBackend } = useBackendHealth();
 
   const handleBarcodeScan = () => {
     setShowBarcodeScanner(true);
@@ -155,6 +158,15 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   };
 
   const handleOCRScan = () => {
+    if (!isBackendHealthy) {
+      toast({
+        title: "Backend Server Not Running",
+        description: "The OCR service requires the Python backend. Please run 'npm run backend:start' or start the backend manually.",
+        variant: "destructive",
+        duration: 8000,
+      });
+      return;
+    }
     setShowOCRScanner(true);
   };
 
@@ -200,7 +212,9 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       title: "Nutrition Label OCR",
       description: "Extract text from nutrition labels",
       action: handleOCRScan,
-      gradient: "bg-gradient-accent"
+      gradient: "bg-gradient-accent",
+      disabled: !isBackendHealthy && !checkingBackend,
+      badge: !isBackendHealthy && !checkingBackend ? "Backend Required" : undefined
     },
     {
       id: "barcode",
@@ -269,25 +283,48 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       />
 
       <div className="px-4 py-6 max-w-md mx-auto space-y-6">
+        {/* Backend Status Alert */}
+        {!isBackendHealthy && !checkingBackend && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Backend Server Offline</AlertTitle>
+            <AlertDescription>
+              OCR scanning is unavailable. Start the backend with: <code className="font-mono text-xs">npm run backend:start</code>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Scan Options */}
         <div className="space-y-4">
           {scanOptions.map((option) => {
             const Icon = option.icon;
+            const isDisabled = option.disabled;
             return (
-              <Card 
+              <Card
                 key={option.id}
-                className="card-material cursor-pointer group"
-                onClick={option.action}
+                className={cn(
+                  "card-material group",
+                  isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                )}
+                onClick={isDisabled ? undefined : option.action}
               >
                 <div className="p-6 flex items-center gap-4">
                   <div className={cn(
-                    "p-4 rounded-3xl shrink-0 transition-transform group-hover:scale-110",
+                    "p-4 rounded-3xl shrink-0",
+                    !isDisabled && "transition-transform group-hover:scale-110",
                     option.gradient
                   )}>
                     <Icon className="h-8 w-8 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-title-large text-foreground mb-1">{option.title}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-title-large text-foreground mb-1">{option.title}</h3>
+                      {option.badge && (
+                        <span className="text-xs px-2 py-1 bg-destructive/10 text-destructive rounded-full">
+                          {option.badge}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-body-large text-muted-foreground">{option.description}</p>
                   </div>
                 </div>

@@ -16,6 +16,8 @@ app = FastAPI()
 ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
 
 # Enable CORS for frontend-backend communication
+# For production, replace "*" with your actual frontend domain
+# Example: allow_origins=["https://your-app.com", "https://www.your-app.com"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins for development
