@@ -165,44 +165,19 @@ All colors MUST be HSL. Focus on health, safety, and nutrition.
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Enhanced Safe Area Handling */
-.safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 16px);
-}
-
-.safe-bottom {
-  padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
-}
-
+  /* More aggressive safe area handling */
 .pb-safe {
-  padding-bottom: max(80px, env(safe-area-inset-bottom, 80px));
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom)) !important;
 }
 
 .main-content-padding {
-  padding-bottom: 100px; /* Increased space for footer */
+  padding-bottom: 10rem !important; /* Even more space */
 }
 
-/* iPhone Notch & Home Indicator Support */
+/* Force safe area on iOS */
 @supports (padding-bottom: constant(safe-area-inset-bottom)) {
-  .safe-area-bottom {
-    padding-bottom: constant(safe-area-inset-bottom);
-  }
-}
-
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  .safe-area-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-}
-
-/* Force safe area on all mobile devices */
-@media (max-width: 768px) {
-  .safe-area-bottom {
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 16px)) !important;
-  }
-  
-  .main-content-padding {
-    padding-bottom: 120px !important; /* Even more space on mobile */
+  .pb-safe {
+    padding-bottom: calc(2rem + constant(safe-area-inset-bottom)) !important;
   }
 }
 
