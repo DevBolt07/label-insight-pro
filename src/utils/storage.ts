@@ -126,7 +126,11 @@ export const settingsStorage = {
         preferredCamera: 'environment',
         torchDefaultOn: false,
         showScanHistory: true,
-        cacheProducts: true
+        cacheProducts: true,
+        darkMode: false,
+        highContrast: false,
+        textSize: 'medium',
+        language: 'en'
       };
     } catch (error) {
       console.warn('Failed to load settings:', error);

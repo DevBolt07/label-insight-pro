@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from '@supabase/supabase-js';
+import { useSettings } from "@/context/settings";
+import { useTranslation } from "@/i18n";
 
 interface SettingsProps {
   onNavigate: (page: string) => void;
@@ -34,13 +36,12 @@ interface SettingsProps {
 export function Settings({ onNavigate, user }: SettingsProps) {
   const { toast } = useToast();
   const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [autoScan, setAutoScan] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [language, setLanguage] = useState("en");
   const [alertSensitivity, setAlertSensitivity] = useState([75]);
-  const [highContrast, setHighContrast] = useState(false);
-  const [textSize, setTextSize] = useState("medium");
+
+  // Global settings from context
+  const { darkMode, setDarkMode, highContrast, setHighContrast, textSize, setTextSize, language, setLanguage } = useSettings();
 
   const handleLogout = async () => {
     try {
@@ -197,10 +198,12 @@ export function Settings({ onNavigate, user }: SettingsProps) {
     }
   ];
 
+  const { t } = useTranslation();
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <MobileHeader 
-        title="Settings"
+        title={t('settings_title')}
         subtitle="Customize your experience"
         showBack
         onBack={() => onNavigate("profile")}

@@ -152,6 +152,19 @@
     --gradient-card: linear-gradient(145deg, hsl(192 85% 12%), hsl(192 85% 10%));
     --gradient-background: linear-gradient(135deg, hsl(192 85% 8%), hsl(192 85% 6%));
   }
+  .high-contrast {
+    /* Strong high contrast overrides */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 100%;
+    --primary: 220 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 100%;
+    --border: 0 0% 30%;
+    --ring: 220 100% 50%;
+  }
 }
 @layer base {
   * {

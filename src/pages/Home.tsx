@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FileText, Scan, Shield, Heart, Sparkles, Settings, TrendingUp, Loader2, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/i18n";
 import { scanHistoryService } from "@/services/scanHistoryService";
 import { recommendationService, SmartRecommendation } from "@/services/recommendationService";
 import { useToast } from "@/hooks/use-toast";
@@ -155,20 +156,22 @@ export function Home({ onNavigate, user }: HomeProps) {
     }
   };
 
+  const { t } = useTranslation();
+
   const quickActions = [
     {
       id: "ocr",
       icon: FileText,
-      title: "Nutrition Label OCR",
-      description: "Extract text from nutrition labels",
+      title: t("nutrition_ocr"),
+      description: t("nutrition_ocr_desc"),
       gradient: "bg-gradient-primary",
       onClick: handleOCRScan
     },
     {
       id: "barcode",
       icon: Scan,
-      title: "Scan Barcode", 
-      description: "Quick product lookup",
+      title: t("scan_barcode"),
+      description: t("scan_barcode_desc"),
       gradient: "bg-gradient-warning",
       onClick: handleBarcodeScan
     }

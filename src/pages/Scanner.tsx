@@ -16,6 +16,7 @@ import type { User } from '@supabase/supabase-js';
 import { analyzeProductWithBackend, UserProfile } from "@/services/backendApi";
 import { useBackendHealth } from "@/hooks/useBackendHealth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useTranslation } from "@/i18n";
 
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
@@ -206,12 +207,14 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   };
 
   // Use same visual/markup pattern as Home quickActions so both pages match
+  const { t } = useTranslation();
+
   const scanOptions = [
     {
       id: "ocr",
       icon: FileText, // match Home: FileText for OCR
-      title: "Nutrition Label OCR",
-      description: "Extract text from nutrition labels",
+      title: t("nutrition_ocr"),
+      description: t("nutrition_ocr_desc"),
       action: handleOCRScan,
       gradient: "bg-gradient-primary",
       disabled: !isBackendHealthy && !checkingBackend,
@@ -220,8 +223,8 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     {
       id: "barcode",
       icon: Scan,
-      title: "Scan Barcode",
-      description: "Quick product lookup",
+      title: t("scan_barcode"),
+      description: t("scan_barcode_desc"),
       action: handleBarcodeScan,
       gradient: "bg-gradient-warning"
     }
