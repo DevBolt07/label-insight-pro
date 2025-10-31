@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { Button } from "./button";
 import { Home, Camera, History, Settings, User } from "lucide-react";
 
 interface BottomNavigationProps {
@@ -17,7 +16,7 @@ const navigationItems = [
 
 export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationProps) {
   return (
-    <div className="fixed inset-x-0 bottom-0 h-16 bg-white/95 backdrop-blur-md border-t border-gray-100 z-[9999]">
+    <div className="fixed inset-x-0 bottom-0 h-16 bg-background/95 backdrop-blur-md border-t border-border z-50 safe-bottom">
       <div className="flex items-center justify-between h-full px-6 mx-auto max-w-screen-sm">
         {navigationItems.map((item) => {
           const Icon = item.icon;
