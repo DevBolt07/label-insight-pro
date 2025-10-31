@@ -17,34 +17,39 @@ const navigationItems = [
 
 export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationProps) {
   return (
-    <div className="fixed inset-x-0 bottom-0 h-[100px] bg-white border-t border-gray-200 shadow-lg z-[9999]">
-      <div className="flex items-center justify-around h-full py-6 px-3 max-w-screen-sm mx-auto">
+    <div className="fixed inset-x-0 bottom-0 h-16 bg-white/95 backdrop-blur-md border-t border-gray-100 z-[9999]">
+      <div className="flex items-center justify-between h-full px-6 mx-auto max-w-screen-sm">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           
           return (
-            <Button
+            <button
               key={item.id}
-              variant="ghost"
-              size="sm"
               onClick={() => onTabChange(item.id)}
               className={cn(
-                "flex flex-col items-center gap-3 py-4 px-4 rounded-xl transition-all duration-300 hover-scale min-w-[65px]",
+                "flex flex-col items-center justify-center flex-1 gap-1 py-2 transition-all duration-200",
                 isActive 
-                  ? "bg-primary/15 text-primary shadow-md" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  ? "text-primary" 
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon className={cn(
-                "h-5 w-5 transition-transform duration-300",
-                isActive && "scale-110"
-              )} />
+              <div className={cn(
+                "p-2 rounded-full transition-all duration-200",
+                isActive && "bg-primary/10"
+              )}>
+                <Icon className={cn(
+                  "h-5 w-5 transition-transform duration-200",
+                  isActive && "scale-105"
+                )} />
+              </div>
               <span className={cn(
-                "text-[11px] font-medium tracking-wide",
-                isActive && "font-semibold"
-              )}>{item.label}</span>
-            </Button>
+                "text-xs font-medium transition-all duration-200",
+                isActive ? "text-primary font-semibold" : "text-muted-foreground"
+              )}>
+                {item.label}
+              </span>
+            </button>
           );
         })}
       </div>
