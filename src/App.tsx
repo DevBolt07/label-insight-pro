@@ -18,7 +18,7 @@ import { useProductAnalysis } from "./hooks/useProductAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
- 
+
 const App = () => {
   const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState("home");
@@ -160,12 +160,12 @@ const App = () => {
   };
 
   return (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <div className="relative min-h-screen bg-background main-content-padding">
-        {renderCurrentPage()}
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <div className="relative min-h-screen bg-background">
+          {renderCurrentPage()}
           <BottomNavigation 
             activeTab={activeTab} 
             onTabChange={(tab) => {

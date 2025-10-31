@@ -171,12 +171,7 @@ All colors MUST be HSL. Focus on health, safety, and nutrition.
   }
 
   .pb-safe {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
-  }
-
-  /* Add this new class for main content padding */
-  .main-content-padding {
-    padding-bottom: 6rem; /* Space for bottom navigation */
+    padding-bottom: max(6rem, calc(5rem + env(safe-area-inset-bottom)));
   }
 
   /* Elegant shadow for elevated elements */
