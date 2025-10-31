@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { HealthScoreCard } from "@/components/ui/health-score-card";
+import { NutriScoreDetailed } from "@/components/ui/nutri-score-detailed";
+import { CarbonFootprintCard } from "@/components/ui/carbon-footprint-card";
 import { IngredientAlertCard, IngredientAlert } from "@/components/ui/ingredient-alert";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { IngredientModal } from "@/components/ui/ingredient-modal";
@@ -295,17 +297,34 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
           </div>
         </Card>
 
-        {/* Health Scores */}
-        <div className="grid gap-4 animate-slide-up animate-stagger-1">
+        {/* Nutri-Score Analysis */}
+        {!isOCRResult && productData?.nutriscore && (
+          <NutriScoreDetailed 
+            productData={productData}
+            className="animate-slide-up animate-stagger-1"
+          />
+        )}
+
+        {/* OCR Health Score */}
+        {isOCRResult && (
           <HealthScoreCard
             score={healthScore}
             grade={healthGrade}
             title="Health Score"
-            description="Based on nutritional quality and processing level"
-            className="animate-scale-in"
+            description="Based on nutritional analysis from label"
+            className="animate-scale-in animate-stagger-1"
           />
+        )}
+
+        {/* Carbon Footprint */}
+        {!isOCRResult && productData && (
+          <CarbonFootprintCard 
+            productData={productData}
+            className="animate-slide-up animate-stagger-2"
+          />
+        )}
           
-          {(productData?.nutritionFacts || (isOCRResult && ocrResult?.nutritionData)) && (
+        {(productData?.nutritionFacts || (isOCRResult && ocrResult?.nutritionData)) && (
             <Card className="card-material p-5 animate-scale-in animate-stagger-2">
               <div className="flex items-center gap-2 mb-4">
                 <Package className="h-5 w-5 text-primary" />
@@ -454,9 +473,8 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
               </div>
             </Card>
           )}
-        </div>
 
-        {/* Product Details - Only for barcode scans */}
+          {/* Product Details - Only for barcode scans */}
         {!isOCRResult && productData && (
           <>
             {/* Basic Product Information */}
