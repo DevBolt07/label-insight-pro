@@ -17,8 +17,8 @@ const navigationItems = [
 
 export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-card/98 backdrop-blur-lg border-t border-border/50 z-50 shadow-lg safe-bottom">
-      <div className="flex items-center justify-around py-2 px-2 max-w-screen-sm mx-auto">
+    <div className="fixed bottom-0 left-0 right-0 bg-card/98 backdrop-blur-lg border-t border-border/50 z-50 shadow-lg pb-safe">
+      <div className="flex items-center justify-around py-3 px-4 max-w-screen-sm mx-auto"> 
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -30,7 +30,7 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
               size="sm"
               onClick={() => onTabChange(item.id)}
               className={cn(
-                "flex flex-col items-center gap-1.5 h-auto py-2.5 px-4 rounded-2xl transition-all duration-300 hover-scale min-w-[64px]",
+                "flex flex-col items-center gap-1.5 h-auto py-3 px-4 rounded-2xl transition-all duration-300 hover:scale-105 min-w-[64px]",
                 isActive 
                   ? "bg-primary/15 text-primary shadow-md" 
                   : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
