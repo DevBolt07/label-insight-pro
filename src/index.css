@@ -8,6 +8,10 @@ All colors MUST be HSL. Focus on health, safety, and nutrition.
 
 @layer base {
   :root {
+    /* Bottom nav dimensions */
+    --bottom-nav-height: 4rem;
+    --bottom-nav-safe: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 1rem));
+
     /* Material Design 3 Surface Colors */
     --background: 245 245 250;
     --foreground: 210 40% 15%;
@@ -171,10 +175,19 @@ All colors MUST be HSL. Focus on health, safety, and nutrition.
      - use sensible fallback for browsers that don't support env()
   */
   .safe-bottom {
-    /* move the fixed bar up by the bottom inset (if supported) */
-    bottom: env(safe-area-inset-bottom, 0);
-    /* add a little inner spacing plus the safe area inset */
+    /* anchor the bar to the viewport bottom and add inner padding that
+       includes the device safe-area inset so buttons are not hidden. */
+    bottom: 0;
     padding-bottom: calc(env(safe-area-inset-bottom, 0) + 0.5rem);
+  }
+
+  .bottom-nav {
+    height: var(--bottom-nav-safe);
+  }
+  
+  /* Main content wrapper padding to prevent nav overlap */
+  .relative.min-h-screen {
+    padding-bottom: var(--bottom-nav-safe);
   }
 
   .pb-safe {
