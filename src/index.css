@@ -165,19 +165,24 @@ All colors MUST be HSL. Focus on health, safety, and nutrition.
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* More aggressive safe area handling */
+  /* Safe area for mobile bottom navigation */
+.safe-bottom {
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+
 .pb-safe {
-  padding-bottom: calc(2rem + env(safe-area-inset-bottom)) !important;
+  padding-bottom: max(4rem, env(safe-area-inset-bottom)); /* Increased from 1rem to 2rem */
 }
 
+/* Add this new class for main content padding */
 .main-content-padding {
-  padding-bottom: 10rem !important; /* Even more space */
+  padding-bottom: 12rem; /* Increased from 6rem to 8rem for more space */
 }
 
-/* Force safe area on iOS */
-@supports (padding-bottom: constant(safe-area-inset-bottom)) {
+/* Add specific safe area handling for iPhones with home indicator */
+@supports (padding-bottom: max(0px, env(safe-area-inset-bottom))) {
   .pb-safe {
-    padding-bottom: calc(2rem + constant(safe-area-inset-bottom)) !important;
+    padding-bottom: max(3rem, env(safe-area-inset-bottom));
   }
 }
 
