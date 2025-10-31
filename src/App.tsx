@@ -94,7 +94,7 @@ const App = () => {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="min-h-screen bg-background flex items-center justify-center safe-area-inset-bottom">
             <LoadingSpinner size="lg" />
           </div>
         </TooltipProvider>
@@ -120,7 +120,7 @@ const App = () => {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="min-h-screen bg-background flex items-center justify-center safe-area-inset-bottom">
             <LoadingSpinner size="lg" />
           </div>
         </TooltipProvider>
@@ -159,34 +159,39 @@ const App = () => {
     }
   };
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <div className="relative min-h-screen bg-background">
+  // In your return statement, replace the current layout with:
+return (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <div className="min-h-screen bg-background safe-area-inset-bottom mobile-viewport">
+        {/* Main content area */}
+        <div className="pb-20 min-h-screen"> {/* Reduced to pb-20 (80px) */}
           {renderCurrentPage()}
-          <BottomNavigation 
-            activeTab={activeTab} 
-            onTabChange={(tab) => {
-              setActiveTab(tab);
-              // Map bottom nav tabs to pages
-              const pageMapping: Record<string, string> = {
-                "home": "home",
-                "scan": "scan",
-                "history": "history", 
-                "profile": "profile",
-                "settings": "settings"
-              };
-              if (pageMapping[tab]) {
-                handleNavigate(pageMapping[tab]);
-              }
-            }} 
-          />
         </div>
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
+        
+        {/* Bottom Navigation */}
+        <BottomNavigation 
+          activeTab={activeTab} 
+          onTabChange={(tab) => {
+            setActiveTab(tab);
+            const pageMapping: Record<string, string> = {
+              "home": "home",
+              "scan": "scan",
+              "history": "history", 
+              "profile": "profile", 
+              "settings": "settings"
+            };
+            if (pageMapping[tab]) {
+              handleNavigate(pageMapping[tab]);
+            }
+          }} 
+        />
+      </div>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 };
 
 export default App;
