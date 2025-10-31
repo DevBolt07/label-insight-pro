@@ -3,54 +3,105 @@ import { productCacheStorage, scanHistoryStorage } from '@/utils/storage';
 export interface OpenFoodFactsProduct {
   code: string;
   product: {
+    // Basic Info
     product_name?: string;
     product_name_en?: string;
+    generic_name?: string;
+    brands?: string;
+    quantity?: string;
+    packaging?: string;
+    categories?: string;
+    labels?: string;
+    countries?: string;
+    manufacturing_places?: string;
+    
+    // Images
     image_url?: string;
     image_front_url?: string;
-    brands?: string;
-    categories?: string;
+    image_ingredients_url?: string;
+    image_nutrition_url?: string;
+    image_packaging_url?: string;
+    
+    // Ingredients & Allergens
     ingredients_text?: string;
     ingredients_text_en?: string;
+    allergens?: string;
+    traces?: string;
+    additives_tags?: string[];
+    ingredients_analysis_tags?: string[];
+    ingredients_from_palm_oil_n?: number;
+    ingredients_that_may_be_from_palm_oil_n?: number;
+    
+    // Nutrition Facts
     nutriments?: {
+      'energy-kcal_100g'?: number;
       energy_100g?: number;
       fat_100g?: number;
-      saturated_fat_100g?: number;
+      'saturated-fat_100g'?: number;
       carbohydrates_100g?: number;
       sugars_100g?: number;
       fiber_100g?: number;
       proteins_100g?: number;
       salt_100g?: number;
       sodium_100g?: number;
+      cholesterol_100g?: number;
+      'vitamin-a_100g'?: number;
+      'vitamin-c_100g'?: number;
+      calcium_100g?: number;
+      iron_100g?: number;
     };
+    
+    // Health & Environmental Indicators
     nutriscore_grade?: string;
+    nutriscore_score?: number;
     nova_group?: number;
     ecoscore_grade?: string;
-    allergens?: string;
-    traces?: string;
-    additives_tags?: string[];
-    ingredients_analysis_tags?: string[];
-    labels?: string;
-    packaging?: string;
+    ecoscore_score?: number;
+    carbon_footprint_from_known_ingredients_product?: number;
+    
+    // Metadata
+    creator?: string;
+    created_t?: number;
+    last_modified_t?: number;
+    link?: string;
     stores?: string;
-    countries?: string;
   };
   status: number;
   status_verbose?: string;
 }
 
 export interface ProductData {
+  // Basic Info
   barcode: string;
   name: string;
+  genericName?: string;
   brand?: string;
+  quantity?: string;
+  packaging?: string;
+  categories?: string;
+  labels?: string;
+  countries?: string;
+  manufacturingPlaces?: string;
+  
+  // Images
   image?: string;
   imageUrl?: string;
-  categories?: string;
+  imageIngredientsUrl?: string;
+  imageNutritionUrl?: string;
+  imagePackagingUrl?: string;
+  
+  // Ingredients & Allergens
   ingredients?: string;
-  nutriscore?: string;
-  nova_group?: number;
   allergens?: string[];
+  traces?: string[];
   additives?: string[];
+  ingredientsAnalysisTags?: string[];
+  palmOilIngredients?: number;
+  mayBePalmOilIngredients?: number;
+  
+  // Nutrition Facts
   nutritionFacts?: {
+    energyKcal?: number;
     energy?: number;
     fat?: number;
     saturatedFat?: number;
@@ -59,7 +110,29 @@ export interface ProductData {
     fiber?: number;
     protein?: number;
     salt?: number;
+    cholesterol?: number;
+    vitaminA?: number;
+    vitaminC?: number;
+    calcium?: number;
+    iron?: number;
   };
+  
+  // Health & Environmental Indicators
+  nutriscore?: string;
+  nutriscoreScore?: number;
+  nova_group?: number;
+  ecoscore?: string;
+  ecoscoreScore?: number;
+  carbonFootprint?: number;
+  
+  // Metadata
+  creator?: string;
+  createdAt?: number;
+  lastModified?: number;
+  link?: string;
+  stores?: string;
+  
+  // Computed Health Data
   healthWarnings?: string[];
   isHealthy?: boolean;
   healthScore?: number;
@@ -119,6 +192,10 @@ class OpenFoodFactsService {
     const allergens = product.allergens ? 
       product.allergens.split(',').map(a => a.trim().replace('en:', '')) : [];
     
+    // Extract traces
+    const traces = product.traces ? 
+      product.traces.split(',').map(t => t.trim().replace('en:', '')) : [];
+    
     // Extract additives
     const additives = product.additives_tags || [];
     
@@ -135,27 +212,68 @@ class OpenFoodFactsService {
     const grade = this.getGradeFromScore(healthScore);
 
     return {
+      // Basic Info
       barcode: data.code,
       name,
+      genericName: product.generic_name,
       brand: product.brands,
+      quantity: product.quantity,
+      packaging: product.packaging,
+      categories: product.categories,
+      labels: product.labels,
+      countries: product.countries,
+      manufacturingPlaces: product.manufacturing_places,
+      
+      // Images
       image: product.image_front_url || product.image_url,
       imageUrl: product.image_front_url || product.image_url,
-      categories: product.categories,
+      imageIngredientsUrl: product.image_ingredients_url,
+      imageNutritionUrl: product.image_nutrition_url,
+      imagePackagingUrl: product.image_packaging_url,
+      
+      // Ingredients & Allergens
       ingredients,
-      nutriscore: product.nutriscore_grade?.toUpperCase(),
-      nova_group: product.nova_group,
       allergens,
+      traces,
       additives: additives.map(tag => tag.replace('en:', '')),
+      ingredientsAnalysisTags: product.ingredients_analysis_tags,
+      palmOilIngredients: product.ingredients_from_palm_oil_n,
+      mayBePalmOilIngredients: product.ingredients_that_may_be_from_palm_oil_n,
+      
+      // Nutrition Facts
       nutritionFacts: {
+        energyKcal: product.nutriments?.['energy-kcal_100g'],
         energy: product.nutriments?.energy_100g,
         fat: product.nutriments?.fat_100g,
-        saturatedFat: product.nutriments?.saturated_fat_100g,
+        saturatedFat: product.nutriments?.['saturated-fat_100g'],
         carbs: product.nutriments?.carbohydrates_100g,
         sugars: product.nutriments?.sugars_100g,
         fiber: product.nutriments?.fiber_100g,
         protein: product.nutriments?.proteins_100g,
-        salt: product.nutriments?.salt_100g || (product.nutriments?.sodium_100g ? product.nutriments.sodium_100g * 2.5 : undefined)
+        salt: product.nutriments?.salt_100g || (product.nutriments?.sodium_100g ? product.nutriments.sodium_100g * 2.5 : undefined),
+        cholesterol: product.nutriments?.cholesterol_100g,
+        vitaminA: product.nutriments?.['vitamin-a_100g'],
+        vitaminC: product.nutriments?.['vitamin-c_100g'],
+        calcium: product.nutriments?.calcium_100g,
+        iron: product.nutriments?.iron_100g,
       },
+      
+      // Health & Environmental Indicators
+      nutriscore: product.nutriscore_grade?.toUpperCase(),
+      nutriscoreScore: product.nutriscore_score,
+      nova_group: product.nova_group,
+      ecoscore: product.ecoscore_grade?.toUpperCase(),
+      ecoscoreScore: product.ecoscore_score,
+      carbonFootprint: product.carbon_footprint_from_known_ingredients_product,
+      
+      // Metadata
+      creator: product.creator,
+      createdAt: product.created_t,
+      lastModified: product.last_modified_t,
+      link: product.link,
+      stores: product.stores,
+      
+      // Computed Health Data
       healthWarnings,
       isHealthy,
       healthScore,
