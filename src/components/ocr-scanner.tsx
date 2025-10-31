@@ -11,11 +11,11 @@ export interface OCRScannerProps {
   className?: string;
 }
 
-export function OCRScanner({ 
-  onImageSelect, 
-  onClose, 
-  isProcessing = false, 
-  className 
+export function OCRScanner({
+  onImageSelect,
+  onClose,
+  isProcessing = false,
+  className
 }: OCRScannerProps) {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -76,30 +76,37 @@ export function OCRScanner({
               <p className="text-muted-foreground text-sm text-center">
                 Take a photo or upload an image of a nutrition label to analyze its contents
               </p>
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   onClick={handleCameraClick}
                   variant="outline"
                   className="h-20 flex-col gap-2"
                   disabled={isProcessing}
+                  aria-label="Open camera to take photo"
                 >
                   <Camera className="h-6 w-6" />
                   <span className="text-xs">Camera</span>
                 </Button>
-                
+
                 <Button
                   onClick={handleUploadClick}
                   variant="outline"
                   className="h-20 flex-col gap-2"
                   disabled={isProcessing}
+                  aria-label="Upload image from device"
                 >
                   <Upload className="h-6 w-6" />
                   <span className="text-xs">Upload</span>
                 </Button>
               </div>
-              
+
+              {/* File input for uploading from gallery/files */}
+              <label htmlFor="file-upload" className="sr-only">
+                Upload image from device
+              </label>
               <input
+                id="file-upload"
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
@@ -109,19 +116,25 @@ export function OCRScanner({
                   if (file) handleFileSelect(file);
                 }}
               />
-              
+
+              {/* Camera input for mobile devices */}
+              <label htmlFor="camera-capture" className="sr-only">
+                Take photo with camera
+              </label>
               <input
+                id="camera-capture"
                 ref={cameraInputRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
                 className="hidden"
+                aria-label="Take photo with camera"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleFileSelect(file);
                 }}
               />
-              
+
               <div className="text-xs text-muted-foreground text-center space-y-1">
                 <p>• Ensure the nutrition label is clearly visible</p>
                 <p>• Good lighting improves accuracy</p>
@@ -137,7 +150,7 @@ export function OCRScanner({
                   className="w-full max-h-64 object-contain rounded-lg border"
                 />
               </div>
-              
+
               <div className="flex gap-2">
                 <Button
                   onClick={handleRetake}
@@ -149,7 +162,7 @@ export function OCRScanner({
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Retake
                 </Button>
-                
+
                 <Button
                   onClick={handleConfirm}
                   size="sm"

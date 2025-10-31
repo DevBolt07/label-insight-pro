@@ -159,15 +159,6 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   };
 
   const handleOCRScan = () => {
-    if (!isBackendHealthy) {
-      toast({
-        title: "Backend Server Not Running",
-        description: "The OCR service requires the Python backend. Please run 'npm run backend:start' or start the backend manually.",
-        variant: "destructive",
-        duration: 8000,
-      });
-      return;
-    }
     setShowOCRScanner(true);
   };
 
@@ -212,13 +203,11 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   const scanOptions = [
     {
       id: "ocr",
-      icon: FileText, // match Home: FileText for OCR
+      icon: FileText,
       title: t("nutrition_ocr"),
       description: t("nutrition_ocr_desc"),
       action: handleOCRScan,
-      gradient: "bg-gradient-primary",
-      disabled: !isBackendHealthy && !checkingBackend,
-      badge: !isBackendHealthy && !checkingBackend ? "Backend Required" : undefined
+      gradient: "bg-gradient-primary"
     },
     {
       id: "barcode",
@@ -287,16 +276,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       />
 
       <div className="px-4 py-6 max-w-md mx-auto space-y-6">
-        {/* Backend Status Alert */}
-        {!isBackendHealthy && !checkingBackend && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Backend Server Offline</AlertTitle>
-            <AlertDescription>
-              OCR scanning is unavailable. Start the backend with: <code className="font-mono text-xs">npm run backend:start</code>
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* Scanner Info */}
 
         {/* Scan Options (use same look as Home quick actions) */}
         <div className="space-y-4">
