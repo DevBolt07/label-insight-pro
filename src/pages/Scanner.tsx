@@ -205,22 +205,23 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     setShowOCRScanner(false);
   };
 
+  // Use same visual/markup pattern as Home quickActions so both pages match
   const scanOptions = [
     {
       id: "ocr",
-      icon: Image,
+      icon: FileText, // match Home: FileText for OCR
       title: "Nutrition Label OCR",
       description: "Extract text from nutrition labels",
       action: handleOCRScan,
-      gradient: "bg-gradient-accent",
+      gradient: "bg-gradient-primary",
       disabled: !isBackendHealthy && !checkingBackend,
       badge: !isBackendHealthy && !checkingBackend ? "Backend Required" : undefined
     },
     {
       id: "barcode",
       icon: Scan,
-      title: "Barcode Scanner",
-      description: "Scan product barcode",
+      title: "Scan Barcode",
+      description: "Quick product lookup",
       action: handleBarcodeScan,
       gradient: "bg-gradient-warning"
     }
@@ -294,38 +295,32 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           </Alert>
         )}
 
-        {/* Scan Options */}
+        {/* Scan Options (use same look as Home quick actions) */}
         <div className="space-y-4">
-          {scanOptions.map((option) => {
+          {scanOptions.map((option, index) => {
             const Icon = option.icon;
             const isDisabled = option.disabled;
             return (
               <Card
                 key={option.id}
                 className={cn(
-                  "card-material group",
+                  "card-material cursor-pointer group",
+                  `animate-stagger-${index + 1}`,
                   isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
                 )}
                 onClick={isDisabled ? undefined : option.action}
               >
-                <div className="p-6 flex items-center gap-4">
+                <div className="p-5 flex items-center gap-4">
                   <div className={cn(
-                    "p-4 rounded-3xl shrink-0",
-                    !isDisabled && "transition-transform group-hover:scale-110",
-                    option.gradient
+                    "p-4 rounded-2xl shrink-0 transition-all duration-300 group-hover:scale-110 group-active:scale-95",
+                    option.gradient,
+                    isDisabled && "opacity-60"
                   )}>
-                    <Icon className="h-8 w-8 text-white" />
+                    <Icon className="h-6 w-6 text-white" />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-title-large text-foreground mb-1">{option.title}</h3>
-                      {option.badge && (
-                        <span className="text-xs px-2 py-1 bg-destructive/10 text-destructive rounded-full">
-                          {option.badge}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-body-large text-muted-foreground">{option.description}</p>
+                    <h4 className="font-semibold text-foreground">{option.title}</h4>
+                    <p className="text-sm text-muted-foreground">{option.description}</p>
                   </div>
                 </div>
               </Card>
