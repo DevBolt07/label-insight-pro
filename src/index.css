@@ -165,9 +165,16 @@ All colors MUST be HSL. Focus on health, safety, and nutrition.
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Safe area for mobile bottom navigation */
+  /* Safe area for mobile bottom navigation
+     - position the fixed element above the device safe-area inset
+     - add a small extra padding so buttons aren't flush to the inner edge
+     - use sensible fallback for browsers that don't support env()
+  */
   .safe-bottom {
-    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    /* move the fixed bar up by the bottom inset (if supported) */
+    bottom: env(safe-area-inset-bottom, 0);
+    /* add a little inner spacing plus the safe area inset */
+    padding-bottom: calc(env(safe-area-inset-bottom, 0) + 0.5rem);
   }
 
   .pb-safe {
@@ -331,6 +338,7 @@ All colors MUST be HSL. Focus on health, safety, and nutrition.
   /* Glassmorphism effect */
   .glass-card {
     background: hsl(var(--background) / 0.7);
+    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     border: 1px solid hsl(var(--border) / 0.5);
   }

@@ -17,7 +17,7 @@ const navigationItems = [
 
 export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-card/98 backdrop-blur-lg border-t border-border/50 z-50 shadow-lg safe-bottom">
+  <div className="fixed left-0 right-0 bg-card/98 backdrop-blur-lg border-t border-border/50 z-50 shadow-lg safe-bottom">
       <div className="flex items-center justify-around py-2 px-2 max-w-screen-sm mx-auto">
         {navigationItems.map((item) => {
           const Icon = item.icon;
