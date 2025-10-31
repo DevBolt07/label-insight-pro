@@ -165,18 +165,17 @@ const App = () => {
       <Toaster />
       <Sonner />
       <div className="relative min-h-screen bg-background main-content-padding">
-          <div className="pb-20"> {/* Additional padding wrapper */}
-            {renderCurrentPage()}
-          </div>
+        {renderCurrentPage()}
           <BottomNavigation 
             activeTab={activeTab} 
             onTabChange={(tab) => {
               setActiveTab(tab);
+              // Map bottom nav tabs to pages
               const pageMapping: Record<string, string> = {
                 "home": "home",
                 "scan": "scan",
                 "history": "history", 
-                "profile": "profile", 
+                "profile": "profile",
                 "settings": "settings"
               };
               if (pageMapping[tab]) {
