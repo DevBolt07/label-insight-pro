@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { Heart, AlertTriangle, Baby, Wheat, Beef, Apple, Milk, Egg, Fish, User as UserIcon, Save, Edit3, LogOut, Loader2, Calculator, Plus, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +22,7 @@ interface ProfileProps {
 const healthConditions = [
   { value: "diabetes", label: "Diabetes", icon: Heart },
   { value: "hypertension", label: "High Blood Pressure", icon: Heart },
+  { value: "heart disease", label: "Heart Disease", icon: Heart },
   { value: "celiac", label: "Celiac Disease", icon: Wheat },
   { value: "lactose", label: "Lactose Intolerance", icon: Milk },
   { value: "pregnancy", label: "Pregnancy", icon: Baby },
@@ -62,6 +62,7 @@ export function Profile({ onNavigate, user }: ProfileProps) {
   const [ageGroup, setAgeGroup] = useState("");
   const [userHealthConditions, setUserHealthConditions] = useState<string[]>([]);
   const [userAllergies, setUserAllergies] = useState<string[]>([]);
+  const [userDietaryRestrictions, setUserDietaryRestrictions] = useState<string[]>([]);
   const [userDietaryPreferences, setUserDietaryPreferences] = useState<string[]>([]);
   const [customHealthConditions, setCustomHealthConditions] = useState<string[]>([]);
   const [customAllergies, setCustomAllergies] = useState<string[]>([]);
@@ -70,6 +71,7 @@ export function Profile({ onNavigate, user }: ProfileProps) {
   const [newCustomAllergy, setNewCustomAllergy] = useState("");
   const [newCustomDietary, setNewCustomDietary] = useState("");
   const [childMode, setChildMode] = useState(false);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
   
   const { signOut } = useAuth();
   const { toast } = useToast();
@@ -84,6 +86,8 @@ export function Profile({ onNavigate, user }: ProfileProps) {
       setIsLoading(true);
       const profile = await profileService.getProfile(user.id);
       
+      console.log('Loaded profile data:', profile); // Debug log
+      
       if (profile) {
         setFirstName(profile.first_name || "");
         setLastName(profile.last_name || "");
@@ -91,19 +95,23 @@ export function Profile({ onNavigate, user }: ProfileProps) {
         setHeight(profile.height_cm ? profile.height_cm.toString() : "");
         setWeight(profile.weight_kg ? profile.weight_kg.toString() : "");
         setBmi(profile.bmi || null);
-        setUserHealthConditions(profile.health_conditions || []);
+        setUserHealthConditions(profile.health_conditions || []); // Note: health_conditions not medical_conditions
         setUserAllergies(profile.allergies || []);
-        setUserDietaryPreferences(profile.dietary_restrictions || []);
+        setUserDietaryRestrictions(profile.dietary_restrictions || []);
+        setUserDietaryPreferences(profile.dietary_preferences || []);
         setCustomHealthConditions(profile.custom_health_conditions || []);
         setCustomAllergies(profile.custom_allergies || []);
         setCustomDietaryPreferences(profile.custom_dietary_preferences || []);
+        setAgeGroup(profile.age_group || "");
+        setOnboardingCompleted(profile.onboarding_completed || true);
         
         // Load nutrition goals data
         if (profile.nutrition_goals) {
           const goals = profile.nutrition_goals as any;
-          setAgeGroup(goals.age_group || "");
           setChildMode(goals.child_mode || false);
         }
+      } else {
+        console.log('No existing profile found'); // Debug log
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -163,7 +171,15 @@ export function Profile({ onNavigate, user }: ProfileProps) {
     }
   };
 
-  const handleDietaryToggle = (preferenceValue: string) => {
+  const handleDietaryRestrictionToggle = (preferenceValue: string) => {
+    if (userDietaryRestrictions.includes(preferenceValue)) {
+      setUserDietaryRestrictions(prev => prev.filter(p => p !== preferenceValue));
+    } else {
+      setUserDietaryRestrictions(prev => [...prev, preferenceValue]);
+    }
+  };
+
+  const handleDietaryPreferenceToggle = (preferenceValue: string) => {
     if (userDietaryPreferences.includes(preferenceValue)) {
       setUserDietaryPreferences(prev => prev.filter(p => p !== preferenceValue));
     } else {
@@ -172,54 +188,57 @@ export function Profile({ onNavigate, user }: ProfileProps) {
   };
 
   const handleSave = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Calculate BMI before saving
-      const calculatedBMI = calculateBMI();
-      
-      const displayName = `${firstName} ${lastName}`.trim() || 
-                          user.email?.split('@')[0] || "User";
-      
-      await profileService.upsertProfile({
-        user_id: user.id,
-        first_name: firstName,
-        last_name: lastName,
-        display_name: displayName,
-        age: age ? parseInt(age) : null,
-        height_cm: height ? parseFloat(height) : null,
-        weight_kg: weight ? parseFloat(weight) : null,
-        bmi: calculatedBMI,
-        health_conditions: userHealthConditions,
-        allergies: userAllergies,
-        dietary_restrictions: userDietaryPreferences,
-        custom_health_conditions: customHealthConditions,
-        custom_allergies: customAllergies,
-        custom_dietary_preferences: customDietaryPreferences,
-        // Store nutrition goals as JSON for age group and child mode
-        nutrition_goals: {
-          age_group: ageGroup,
-          child_mode: childMode
-        }
-      });
+  try {
+    setIsLoading(true);
+    
+    // Calculate BMI before saving
+    const calculatedBMI = calculateBMI();
+    
+    const profileData = {
+      first_name: firstName,
+      last_name: lastName,
+      display_name: `${firstName} ${lastName}`.trim() || user.email?.split('@')[0] || "User",
+      age: age ? parseInt(age) : null,
+      height_cm: height ? parseFloat(height) : null,
+      weight_kg: weight ? parseFloat(weight) : null,
+      bmi: calculatedBMI,
+      health_conditions: userHealthConditions,
+      allergies: userAllergies,
+      dietary_restrictions: userDietaryRestrictions,
+      dietary_preferences: userDietaryPreferences,
+      custom_health_conditions: customHealthConditions,
+      custom_allergies: customAllergies,
+      custom_dietary_preferences: customDietaryPreferences,
+      age_group: ageGroup,
+      nutrition_goals: {
+        child_mode: childMode
+      },
+      onboarding_completed: true,
+      updated_at: new Date().toISOString()
+    };
 
-      toast({
-        title: "Profile Saved",
-        description: "Your profile has been updated successfully."
-      });
-      
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save profile. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    console.log('Saving profile data:', profileData);
+
+    // Use update instead of upsert to avoid the ID conflict
+    await profileService.updateProfile(user.id, profileData);
+
+    toast({
+      title: "Profile Saved",
+      description: "Your profile has been updated successfully."
+    });
+    
+    setIsEditing(false);
+  } catch (error) {
+    console.error('Error saving profile:', error);
+    toast({
+      title: "Error",
+      description: "Failed to save profile. Please try again.",
+      variant: "destructive"
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Custom preference handlers
   const addCustomHealth = () => {
@@ -575,7 +594,7 @@ export function Profile({ onNavigate, user }: ProfileProps) {
           </div>
         </Card>
 
-        {/* Dietary Preferences */}
+        {/* Dietary Restrictions */}
         <Card className="card-material">
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-3">
@@ -583,8 +602,42 @@ export function Profile({ onNavigate, user }: ProfileProps) {
                 <Apple className="h-6 w-6 text-healthy" />
               </div>
               <div>
+                <h3 className="text-title-large font-semibold text-foreground">Dietary Restrictions</h3>
+                <p className="text-sm text-muted-foreground">Foods you need to avoid</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {dietaryPreferences.map((preference) => {
+                  const Icon = preference.icon;
+                  return (
+                    <Badge
+                      key={preference.value}
+                      variant={userDietaryRestrictions.includes(preference.value) ? "default" : "outline"}
+                      className={`cursor-pointer transition-all hover:scale-105 ${!isEditing ? 'pointer-events-none opacity-70' : ''}`}
+                      onClick={() => isEditing && handleDietaryRestrictionToggle(preference.value)}
+                    >
+                      <Icon className="h-3 w-3 mr-1" />
+                      {preference.label}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Dietary Preferences */}
+        <Card className="card-material">
+          <div className="p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-full bg-primary/10">
+                <Apple className="h-6 w-6 text-primary" />
+              </div>
+              <div>
                 <h3 className="text-title-large font-semibold text-foreground">Dietary Preferences</h3>
-                <p className="text-sm text-muted-foreground">Your lifestyle and dietary choices</p>
+                <p className="text-sm text-muted-foreground">Your lifestyle choices</p>
               </div>
             </div>
             
@@ -597,7 +650,7 @@ export function Profile({ onNavigate, user }: ProfileProps) {
                       key={preference.value}
                       variant={userDietaryPreferences.includes(preference.value) ? "default" : "outline"}
                       className={`cursor-pointer transition-all hover:scale-105 ${!isEditing ? 'pointer-events-none opacity-70' : ''}`}
-                      onClick={() => isEditing && handleDietaryToggle(preference.value)}
+                      onClick={() => isEditing && handleDietaryPreferenceToggle(preference.value)}
                     >
                       <Icon className="h-3 w-3 mr-1" />
                       {preference.label}

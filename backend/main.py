@@ -8,8 +8,39 @@ from paddleocr import PaddleOCR
 from PIL import Image
 import io
 import base64
-import numpy as np
+import numpy as np 
+import os
+from supabase import create_client, Client
 
+# Initialize Supabase client
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_ANON_KEY")
+
+if supabase_url and supabase_key:
+    supabase: Client = create_client(supabase_url, supabase_key)
+else:
+    print("Warning: Supabase credentials not found. Profile features will be disabled.")
+    supabase = None
+
+# Add this new function to get user profile
+def get_user_profile(user_id: str) -> Optional[Dict]:
+    """Fetch user profile from Supabase"""
+    if not supabase:
+        return None
+        
+    try:
+        response = supabase.table('profiles') \
+            .select('*') \
+            .eq('user_id', user_id) \
+            .execute()
+        
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        return None
+    except Exception as e:
+        print(f"Error fetching profile: {e}")
+        return None
+    
 app = FastAPI()
 
 # Initialize PaddleOCR
@@ -207,37 +238,63 @@ def calculate_health_score(product_data: Dict, ingredients: List[Ingredient], al
     # Ensure score is between 0 and 100
     return max(0, min(100, round(base_score)))
 
-# Generate personalized recommendations based on health conditions
-def get_personalized_recommendations(product_data: Dict, ingredients: List[Ingredient], conditions: List[str]) -> List[str]:
+# personalized health recommendation 
+def get_personalized_recommendations(product_data: Dict, ingredients: List[Ingredient], conditions: List[str], allergies: List[str]) -> List[str]:
     recommendations = []
     nutriments = product_data.get('nutriments', {})
     
-    if 'diabetes' in conditions or 'sugar' in conditions:
-        sugars = nutriments.get('sugars_100g', 0)
-        if sugars > 5:
-            recommendations.append(f"High sugar content ({sugars}g) - not recommended for diabetes")
-        else:
-            recommendations.append("Moderate sugar content - can be consumed in moderation")
+    # Check for medical conditions
+    conditions_lower = [cond.lower() for cond in conditions]
+    ingredients_lower = [ing.name.lower() for ing in ingredients]
     
-    if 'high bp' in conditions or 'hypertension' in conditions:
+    # Diabetes/Sugar conditions
+    if any(cond in conditions_lower for cond in ['diabetes', 'sugar', 'diabetic']):
+        sugars = nutriments.get('sugars_100g', 0)
+        if sugars > 10:
+            recommendations.append(f"⚠️ High sugar content ({sugars}g) - not recommended for diabetes")
+        elif sugars > 5:
+            recommendations.append(f"⚠️ Moderate sugar content ({sugars}g) - consume with caution")
+        else:
+            recommendations.append("✅ Sugar content is diabetes-friendly")
+    
+    # Hypertension/Blood pressure conditions
+    if any(cond in conditions_lower for cond in ['high bp', 'hypertension', 'blood pressure']):
         salt = nutriments.get('salt_100g', 0)
         if salt > 1.5:
-            recommendations.append(f"High salt content ({salt}g) - not recommended for hypertension")
+            recommendations.append(f"⚠️ High salt content ({salt}g) - not recommended for hypertension")
+        elif salt > 0.6:
+            recommendations.append(f"⚠️ Moderate salt content ({salt}g) - consume with caution")
         else:
-            recommendations.append("Moderate salt content - can be consumed in moderation")
+            recommendations.append("✅ Salt content is hypertension-friendly")
     
-    if 'heart disease' in conditions:
+    # Heart conditions
+    if any(cond in conditions_lower for cond in ['heart disease', 'cholesterol', 'cardiac']):
         saturated_fat = nutriments.get('saturated-fat_100g', 0)
         if saturated_fat > 5:
-            recommendations.append(f"High saturated fat content ({saturated_fat}g) - not recommended for heart conditions")
+            recommendations.append(f"⚠️ High saturated fat ({saturated_fat}g) - not recommended for heart conditions")
+        elif saturated_fat > 2:
+            recommendations.append(f"⚠️ Moderate saturated fat ({saturated_fat}g) - consume with caution")
         else:
-            recommendations.append("Moderate fat content - can be consumed in moderation")
+            recommendations.append("✅ Saturated fat content is heart-healthy")
+    
+    # Check for allergies
+    for allergy in allergies:
+        allergy_lower = allergy.lower()
+        # Check if allergy appears in any ingredient
+        if any(allergy_lower in ingredient or ingredient in allergy_lower for ingredient in ingredients_lower):
+            recommendations.append(f"🚫 CONTAINS {allergy.upper()} - You are allergic to this ingredient!")
+        # Special case for common allergens
+        elif allergy_lower in ['gluten'] and any(gluten in ingredient for gluten in ['wheat', 'barley', 'rye'] for ingredient in ingredients_lower):
+            recommendations.append(f"🚫 MAY CONTAIN GLUTEN - Not suitable for gluten allergy")
+        elif allergy_lower in ['dairy', 'lactose'] and any(dairy in ingredient for dairy in ['milk', 'cheese', 'cream', 'butter'] for ingredient in ingredients_lower):
+            recommendations.append(f"🚫 CONTAINS DAIRY - Not suitable for dairy allergy")
     
     return recommendations
 
 # Main endpoint to analyze product
+# Update the analyze-product endpoint to accept user_id
 @app.post("/analyze-product", response_model=ProductAnalysis)
-async def analyze_product(barcode: str, health_conditions: List[str] = []):
+async def analyze_product(barcode: str, user_id: Optional[str] = None):
     # Fetch product data from Open Food Facts
     product_data = get_product_data(barcode)
     if not product_data:
@@ -253,8 +310,16 @@ async def analyze_product(barcode: str, health_conditions: List[str] = []):
     # Calculate health score
     health_score = calculate_health_score(product_data, ingredients, alerts)
     
-    # Get personalized recommendations
-    personalized_recommendations = get_personalized_recommendations(product_data, ingredients, health_conditions)
+    # Get user profile and generate personalized recommendations
+    personalized_recommendations = []
+    if user_id:
+        user_profile = get_user_profile(user_id)
+        if user_profile:
+            conditions = user_profile.get('medical_conditions', [])
+            allergies = user_profile.get('allergies', [])
+            personalized_recommendations = get_personalized_recommendations(
+                product_data, ingredients, conditions, allergies
+            )
     
     # Determine processing level
     nova_group = product_data.get('nova_group', 1)
