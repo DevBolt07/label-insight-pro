@@ -2,35 +2,18 @@ import { useState } from "react";
 import { Card } from "./card";
 import { Badge } from "./badge";
 import { cn } from "@/lib/utils";
-import { AlertCircle, CheckCircle2, XCircle, TrendingUp, TrendingDown, Apple, Droplet, Package as PackageIcon, Factory, ChevronRight, AlertTriangle, Image as ImageIcon, Calendar } from "lucide-react";
+import { AlertCircle, CheckCircle2, XCircle, TrendingUp, TrendingDown, Apple, Droplet, Package as PackageIcon, Factory, ChevronRight } from "lucide-react";
 import { ProductData } from "@/services/openFoodFacts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 import { IngredientDetailModal } from "./ingredient-detail-modal";
-import { AdditiveDetailModal } from "./additive-detail-modal";
 
 interface NutriScoreDetailedProps {
   productData: ProductData;
   className?: string;
 }
 
-// Additive name mapping
-const ADDITIVE_NAMES: Record<string, string> = {
-  'e100': 'Curcumin', 'e122': 'Azorubine', 'e150d': 'Caramel IV', 'e200': 'Sorbic Acid',
-  'e202': 'Potassium Sorbate', 'e211': 'Sodium Benzoate', 'e250': 'Sodium Nitrite',
-  'e290': 'Carbon Dioxide', 'e300': 'Ascorbic Acid (Vitamin C)', 'e322': 'Lecithin',
-  'e330': 'Citric Acid', 'e338': 'Phosphoric Acid', 'e412': 'Guar Gum', 'e440': 'Pectin',
-  'e451': 'Triphosphates', 'e500': 'Sodium Carbonates', 'e501': 'Potassium Carbonates',
-  'e508': 'Potassium Chloride', 'e621': 'MSG', 'e635': 'Disodium Ribonucleotides',
-};
-
-const getAdditiveName = (code: string): string => {
-  const cleanCode = code.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return ADDITIVE_NAMES[cleanCode] || code.toUpperCase();
-};
-
 export function NutriScoreDetailed({ productData, className }: NutriScoreDetailedProps) {
   const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
-  const [selectedAdditive, setSelectedAdditive] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   
   const nutriScore = productData.nutriscore?.toUpperCase() || 'C';
@@ -235,39 +218,63 @@ export function NutriScoreDetailed({ productData, className }: NutriScoreDetaile
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="alerts">
-              Alerts
+            <TabsTrigger value="negative">
+              Concerns
               {negativeFactors.length > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 min-w-5 bg-danger/20 text-danger">
                   {negativeFactors.length}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="info">Details</TabsTrigger>
+            <TabsTrigger value="ingredients">Info</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4 mt-4">
             {/* Quick Stats */}
-            {productData.packaging && (
-              <div className="p-4 bg-gradient-to-br from-primary/5 to-accent/5 rounded-xl border border-primary/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <PackageIcon className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-medium text-muted-foreground">Packaging Score</span>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Packaging Score */}
+              {productData.packaging && (
+                <div className="p-4 bg-gradient-to-br from-primary/5 to-accent/5 rounded-xl border border-primary/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <PackageIcon className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium text-muted-foreground">Packaging</span>
+                  </div>
+                  <div className={cn(
+                    "text-2xl font-bold mb-1",
+                    packagingInfo.color === 'healthy' && 'text-healthy',
+                    packagingInfo.color === 'warning' && 'text-warning',
+                    packagingInfo.color === 'danger' && 'text-danger',
+                    packagingInfo.color === 'muted' && 'text-muted-foreground'
+                  )}>
+                    {packagingInfo.score}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{packagingInfo.label}</p>
                 </div>
-                <div className={cn(
-                  "text-2xl font-bold mb-1",
-                  packagingInfo.color === 'healthy' && 'text-healthy',
-                  packagingInfo.color === 'warning' && 'text-warning',
-                  packagingInfo.color === 'danger' && 'text-danger',
-                  packagingInfo.color === 'muted' && 'text-muted-foreground'
-                )}>
-                  {packagingInfo.score}
+              )}
+
+              {/* Food Processing (NOVA) */}
+              {productData.nova_group && (
+                <div className="p-4 bg-gradient-to-br from-primary/5 to-accent/5 rounded-xl border border-primary/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Factory className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium text-muted-foreground">Processing</span>
+                  </div>
+                  <div className={cn(
+                    "text-2xl font-bold mb-1",
+                    productData.nova_group <= 2 ? 'text-healthy' : productData.nova_group === 3 ? 'text-warning' : 'text-danger'
+                  )}>
+                    NOVA {productData.nova_group}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {productData.nova_group === 1 && 'Unprocessed'}
+                    {productData.nova_group === 2 && 'Processed culinary'}
+                    {productData.nova_group === 3 && 'Processed'}
+                    {productData.nova_group === 4 && 'Ultra-processed'}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">{packagingInfo.label}</p>
-                <p className="text-xs text-muted-foreground mt-1 capitalize">{productData.packaging}</p>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Summary */}
             <div className="p-4 bg-muted/30 rounded-lg">
@@ -323,49 +330,13 @@ export function NutriScoreDetailed({ productData, className }: NutriScoreDetaile
             )}
           </TabsContent>
 
-          {/* Alerts Tab - Areas of Concern + Processing Level */}
-          <TabsContent value="alerts" className="space-y-4 mt-4">
-            {/* Food Processing Alert */}
-            {productData.nova_group && productData.nova_group >= 3 && (
-              <div className={cn(
-                "p-4 rounded-lg border",
-                productData.nova_group === 3 ? "bg-warning/5 border-warning/20" : "bg-danger/5 border-danger/20"
-              )}>
-                <div className="flex items-start gap-3">
-                  <Factory className={cn(
-                    "h-5 w-5 mt-0.5 flex-shrink-0",
-                    productData.nova_group === 3 ? "text-warning" : "text-danger"
-                  )} />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-semibold text-foreground">Processing Level</h4>
-                      <Badge variant="secondary" className={cn(
-                        productData.nova_group === 3 ? "bg-warning/20 text-warning" : "bg-danger/20 text-danger"
-                      )}>
-                        NOVA Group {productData.nova_group}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {productData.nova_group === 3 && 'Processed foods (canned vegetables, cheese, freshly made bread)'}
-                      {productData.nova_group === 4 && 'Ultra-processed foods with industrial formulations, often containing additives'}
-                    </p>
-                    {productData.nova_group === 4 && (
-                      <div className="flex items-start gap-2 p-2 bg-danger/10 rounded mt-2">
-                        <AlertTriangle className="h-4 w-4 text-danger mt-0.5 flex-shrink-0" />
-                        <p className="text-xs text-danger">Associated with increased health risks. Choose minimally processed alternatives when possible.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Negative Factors */}
+          {/* Negative Factors / Areas of Concern Tab */}
+          <TabsContent value="negative" className="space-y-4 mt-4">
             {negativeFactors.length > 0 ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-danger" />
-                  <h4 className="font-semibold text-foreground">Nutritional Concerns</h4>
+                  <h4 className="font-semibold text-foreground">Areas of Concern</h4>
                 </div>
                 <div className="space-y-2">
                   {negativeFactors.map((factor, idx) => (
@@ -388,35 +359,68 @@ export function NutriScoreDetailed({ productData, className }: NutriScoreDetaile
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-healthy" />
-                <p className="font-medium text-healthy">No major nutritional concerns identified</p>
+                <p className="font-medium text-healthy">No major concerns identified</p>
                 <p className="text-sm mt-1">This product has a healthy nutritional profile</p>
               </div>
             )}
           </TabsContent>
 
-          {/* Product Details & Info Tab */}
-          <TabsContent value="info" className="space-y-4 mt-4">
-            {/* Additives Section */}
-            {productData.additives && productData.additives.length > 0 && (
+          {/* Ingredients & Info Tab */}
+          <TabsContent value="ingredients" className="space-y-4 mt-4">
+            {/* Packaging Details */}
+            {productData.packaging && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-warning" />
-                  <h4 className="font-semibold text-foreground">Additives ({productData.additives.length})</h4>
+                  <PackageIcon className="h-5 w-5 text-primary" />
+                  <h4 className="font-semibold text-foreground">Packaging Information</h4>
                 </div>
-                <div className="space-y-2">
-                  {productData.additives.map((additive, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setSelectedAdditive(additive)}
-                      className="w-full flex items-center justify-between p-3 bg-warning/5 border border-warning/20 hover:bg-warning/10 rounded-lg transition-colors text-left group"
-                    >
-                      <div className="flex-1">
-                        <span className="text-sm font-medium text-foreground block">{getAdditiveName(additive)}</span>
-                        <span className="text-xs text-muted-foreground font-mono">{additive.toUpperCase()}</span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                    </button>
-                  ))}
+                <div className={cn(
+                  "p-4 rounded-lg border",
+                  packagingInfo.color === 'healthy' && "bg-healthy/5 border-healthy/20",
+                  packagingInfo.color === 'warning' && "bg-warning/5 border-warning/20",
+                  packagingInfo.color === 'danger' && "bg-danger/5 border-danger/20",
+                  packagingInfo.color === 'muted' && "bg-muted/30 border-border"
+                )}>
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge variant="secondary" className={cn(
+                      packagingInfo.color === 'healthy' && "bg-healthy/20 text-healthy",
+                      packagingInfo.color === 'warning' && "bg-warning/20 text-warning",
+                      packagingInfo.color === 'danger' && "bg-danger/20 text-danger"
+                    )}>
+                      Grade {packagingInfo.score}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{packagingInfo.label}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">{packagingInfo.description}</p>
+                  <p className="text-xs text-muted-foreground capitalize">Materials: {productData.packaging}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Food Processing Details */}
+            {productData.nova_group && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Factory className="h-5 w-5 text-primary" />
+                  <h4 className="font-semibold text-foreground">Food Processing Level</h4>
+                </div>
+                <div className={cn(
+                  "p-4 rounded-lg border",
+                  productData.nova_group <= 2 ? "bg-healthy/5 border-healthy/20" : productData.nova_group === 3 ? "bg-warning/5 border-warning/20" : "bg-danger/5 border-danger/20"
+                )}>
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge variant="secondary" className={cn(
+                      productData.nova_group <= 2 ? "bg-healthy/20 text-healthy" : productData.nova_group === 3 ? "bg-warning/20 text-warning" : "bg-danger/20 text-danger"
+                    )}>
+                      NOVA Group {productData.nova_group}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {productData.nova_group === 1 && 'Unprocessed or minimally processed foods (fresh fruits, vegetables, grains)'}
+                    {productData.nova_group === 2 && 'Processed culinary ingredients (oils, butter, sugar, salt)'}
+                    {productData.nova_group === 3 && 'Processed foods (canned vegetables, cheese, freshly made bread)'}
+                    {productData.nova_group === 4 && 'Ultra-processed foods with industrial formulations, often containing additives'}
+                  </p>
                 </div>
               </div>
             )}
@@ -426,7 +430,7 @@ export function NutriScoreDetailed({ productData, className }: NutriScoreDetaile
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Apple className="h-5 w-5 text-primary" />
-                  <h4 className="font-semibold text-foreground">Ingredients ({ingredientsList.length}) - Click for details</h4>
+                  <h4 className="font-semibold text-foreground">Ingredients (Click for details)</h4>
                 </div>
                 <div className="space-y-2">
                   {ingredientsList.slice(0, 10).map((ingredient, idx) => (
@@ -447,96 +451,6 @@ export function NutriScoreDetailed({ productData, className }: NutriScoreDetaile
                 </div>
               </div>
             )}
-
-            {/* Product Images */}
-            {(productData.imageIngredientsUrl || productData.imageNutritionUrl || productData.imagePackagingUrl) && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <ImageIcon className="h-5 w-5 text-primary" />
-                  <h4 className="font-semibold text-foreground">Product Images</h4>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {productData.imageIngredientsUrl && (
-                    <div className="space-y-1">
-                      <img 
-                        src={productData.imageIngredientsUrl} 
-                        alt="Ingredients" 
-                        className="w-full rounded-lg border border-border"
-                      />
-                      <p className="text-xs text-muted-foreground text-center">Ingredients</p>
-                    </div>
-                  )}
-                  {productData.imageNutritionUrl && (
-                    <div className="space-y-1">
-                      <img 
-                        src={productData.imageNutritionUrl} 
-                        alt="Nutrition Facts" 
-                        className="w-full rounded-lg border border-border"
-                      />
-                      <p className="text-xs text-muted-foreground text-center">Nutrition</p>
-                    </div>
-                  )}
-                  {productData.imagePackagingUrl && (
-                    <div className="space-y-1">
-                      <img 
-                        src={productData.imagePackagingUrl} 
-                        alt="Packaging" 
-                        className="w-full rounded-lg border border-border"
-                      />
-                      <p className="text-xs text-muted-foreground text-center">Packaging</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Product Details */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <PackageIcon className="h-5 w-5 text-primary" />
-                <h4 className="font-semibold text-foreground">Product Details</h4>
-              </div>
-              <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
-                {productData.genericName && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Generic Name</p>
-                    <p className="text-sm text-foreground">{productData.genericName}</p>
-                  </div>
-                )}
-                {productData.quantity && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Quantity</p>
-                    <p className="text-sm text-foreground">{productData.quantity}</p>
-                  </div>
-                )}
-                {productData.categories && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Categories</p>
-                    <p className="text-sm text-foreground">{productData.categories}</p>
-                  </div>
-                )}
-                {productData.countries && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Countries</p>
-                    <p className="text-sm text-foreground">{productData.countries}</p>
-                  </div>
-                )}
-                {productData.manufacturingPlaces && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Manufacturing Places</p>
-                    <p className="text-sm text-foreground">{productData.manufacturingPlaces}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Last Updated */}
-            {productData.lastModified && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t border-border">
-                <Calendar className="h-3 w-3" />
-                <span>Last updated: {new Date(productData.lastModified * 1000).toLocaleDateString()}</span>
-              </div>
-            )}
           </TabsContent>
         </Tabs>
 
@@ -554,15 +468,6 @@ export function NutriScoreDetailed({ productData, className }: NutriScoreDetaile
           ingredient={selectedIngredient}
           isOpen={!!selectedIngredient}
           onClose={() => setSelectedIngredient(null)}
-        />
-      )}
-
-      {/* Additive Detail Modal */}
-      {selectedAdditive && (
-        <AdditiveDetailModal
-          additive={selectedAdditive}
-          isOpen={!!selectedAdditive}
-          onClose={() => setSelectedAdditive(null)}
         />
       )}
     </>
