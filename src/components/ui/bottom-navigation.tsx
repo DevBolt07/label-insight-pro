@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { Home, Camera, History, Settings, User } from "lucide-react";
 
 interface BottomNavigationProps {
-  activeTab: string;
+  activeTab: string; 
   onTabChange: (tab: string) => void;
 }
 
@@ -43,7 +43,7 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
               )}>
                 {item.label}
               </span>
-            </Button>
+            </button>
           );
         })}
       </div>
