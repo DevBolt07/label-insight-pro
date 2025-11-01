@@ -105,7 +105,7 @@ IMPORTANT: Never provide medical diagnosis or treatment advice. Always recommend
   } catch (error) {
     console.error('Error in health-chat function:', error);
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       response: "I'm sorry, I'm having trouble processing your question right now. Please try again later, and remember to consult with healthcare professionals for any serious health concerns."
     }), {
       status: 500,

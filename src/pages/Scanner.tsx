@@ -282,22 +282,19 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
         <div className="space-y-4">
           {scanOptions.map((option, index) => {
             const Icon = option.icon;
-            const isDisabled = option.disabled;
             return (
               <Card
                 key={option.id}
                 className={cn(
                   "card-material cursor-pointer group",
-                  `animate-stagger-${index + 1}`,
-                  isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                  `animate-stagger-${index + 1}`
                 )}
-                onClick={isDisabled ? undefined : option.action}
+                onClick={option.action}
               >
                 <div className="p-5 flex items-center gap-4">
                   <div className={cn(
                     "p-4 rounded-2xl shrink-0 transition-all duration-300 group-hover:scale-110 group-active:scale-95",
-                    option.gradient,
-                    isDisabled && "opacity-60"
+                    option.gradient
                   )}>
                     <Icon className="h-6 w-6 text-white" />
                   </div>

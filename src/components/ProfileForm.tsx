@@ -12,10 +12,9 @@ interface ProfileFormProps {
 export const ProfileForm: React.FC<ProfileFormProps> = ({ userId, onProfileSaved }) => {
   const [profile, setProfile] = useState<Partial<Profile>>({
     user_id: userId,
-    medical_conditions: [],
+    health_conditions: [],
     allergies: [],
-    dietary_restrictions: [],
-    medications: []
+    dietary_restrictions: []
   });
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -24,7 +23,6 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ userId, onProfileSaved
   const [newCondition, setNewCondition] = useState('');
   const [newAllergy, setNewAllergy] = useState('');
   const [newRestriction, setNewRestriction] = useState('');
-  const [newMedication, setNewMedication] = useState('');
 
   useEffect(() => {
     loadProfile();
@@ -49,10 +47,9 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ userId, onProfileSaved
       if (profile.user_id) {
         await profileService.upsertProfile({
           user_id: profile.user_id,
-          medical_conditions: profile.medical_conditions || [],
+          health_conditions: profile.health_conditions || [],
           allergies: profile.allergies || [],
           dietary_restrictions: profile.dietary_restrictions || [],
-          medications: profile.medications || [],
           updated_at: new Date().toISOString()
         });
         setSaved(true);
@@ -139,8 +136,8 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ userId, onProfileSaved
       <h2 className="text-2xl font-bold mb-6">Health Profile</h2>
       
       {renderSection(
-        "Medical Conditions",
-        "medical_conditions",
+        "Health Conditions",
+        "health_conditions",
         newCondition,
         setNewCondition,
         "e.g., Diabetes, Hypertension"
@@ -160,14 +157,6 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ userId, onProfileSaved
         newRestriction,
         setNewRestriction,
         "e.g., Vegetarian, Vegan, Low-sodium"
-      )}
-      
-      {renderSection(
-        "Medications",
-        "medications",
-        newMedication,
-        setNewMedication,
-        "e.g., Insulin, Blood pressure medication"
       )}
 
       <div className="mt-6">

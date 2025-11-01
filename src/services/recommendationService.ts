@@ -18,10 +18,9 @@ export interface SmartRecommendation {
 
 export interface HealthProfile {
   user_id: string;
-  medical_conditions: string[];
+  health_conditions: string[];
   allergies: string[];
   dietary_restrictions: string[];
-  medications: string[];
 }
 
 export const recommendationService = {
@@ -74,7 +73,7 @@ export const recommendationService = {
 
     // Filter based on health conditions and allergies
     if (profile) {
-      const conditions = profile.medical_conditions || [];
+      const conditions = profile.health_conditions || [];
       const allergies = profile.allergies || [];
       const restrictions = profile.dietary_restrictions || [];
 
@@ -105,8 +104,8 @@ export const recommendationService = {
       description: product.description || this.generateProductDescription(product, profile),
       image: product.image_url || product.image_front_url || '/placeholder-product.jpg',
       category: product.categories || product.category || 'General',
-      score: product.health_score || product.nutrition_score || 75,
-      grade: this.calculateGrade(product.health_score || product.nutrition_score || 75),
+      score: product.health_score || product.nutriscore || 75,
+      grade: this.calculateGrade(product.health_score || product.nutriscore || 75),
       price: this.estimatePrice(product),
       trending: Math.random() > 0.7, // Random trending flag for demo
       reason: this.generateRecommendationReason(product, profile),
@@ -168,7 +167,7 @@ export const recommendationService = {
   },
 
   applyHealthConditionScoring(product: any, conditions: string[]): any {
-    let score = product.health_score || product.nutrition_score || 75;
+    let score = product.health_score || product.nutriscore || 75;
     const nutriments = product.nutriments || {};
     
     conditions.forEach(condition => {
@@ -239,7 +238,7 @@ export const recommendationService = {
       return 'Popular healthy choice with good nutritional balance';
     }
 
-    const conditions = profile.medical_conditions || [];
+    const conditions = profile.health_conditions || [];
     
     // Health condition specific reasons
     conditions.forEach(condition => {
@@ -324,12 +323,12 @@ export const recommendationService = {
           if (alt.id === productId || alt.barcode === product.barcode) return false;
           
           // Filter by health score improvement
-          const currentScore = product.health_score || product.nutrition_score || 50;
-          const altScore = alt.health_score || alt.nutrition_score || 50;
+          const currentScore = typeof product.health_score === 'number' ? product.health_score : (typeof product.nutriscore === 'number' ? product.nutriscore : 50);
+          const altScore = typeof alt.health_score === 'number' ? alt.health_score : (typeof alt.nutriscore === 'number' ? alt.nutriscore : 50);
           
           return altScore > currentScore + 10; // At least 10 points better
         })
-        .map(alt => this.applyHealthConditionScoring(alt, profile?.medical_conditions || []))
+        .map(alt => this.applyHealthConditionScoring(alt, profile?.health_conditions || []))
         .sort((a, b) => b.score - a.score)
         .slice(0, 4);
 
@@ -354,8 +353,8 @@ export const recommendationService = {
   },
 
   getImprovementDescription(original: any, alternative: any): string {
-    const originalScore = original.health_score || original.nutrition_score || 50;
-    const altScore = alternative.health_score || alternative.nutrition_score || 50;
+    const originalScore = original.health_score || original.nutriscore || 50;
+    const altScore = alternative.health_score || alternative.nutriscore || 50;
     const improvement = altScore - originalScore;
     
     if (improvement > 30) return 'Significantly healthier';
@@ -385,7 +384,7 @@ export const recommendationService = {
     
     // Add profile-specific reasons
     if (profile) {
-      const conditions = profile.medical_conditions || [];
+      const conditions = profile.health_conditions || [];
       if (conditions.some(c => c.toLowerCase().includes('diabetes')) && 
           altNutriments.sugars_100g < (origNutriments.sugars_100g || 0)) {
         reasons.push('Better for diabetes');
