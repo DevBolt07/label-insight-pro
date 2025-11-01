@@ -1,7 +1,9 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { X, Camera, RotateCcw } from "lucide-react";
+import { X, Camera, RotateCcw, Crop } from "lucide-react";
+import Cropper from "react-easy-crop";
+import type { Area } from "react-easy-crop";
 
 interface OcrCameraCaptureProps {
   onCapture: (file: File) => void;
@@ -10,10 +12,13 @@ interface OcrCameraCaptureProps {
 
 export const OcrCameraCapture: React.FC<OcrCameraCaptureProps> = ({ onCapture, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [captured, setCaptured] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null); // base64
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [showCrop, setShowCrop] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -35,27 +40,71 @@ export const OcrCameraCapture: React.FC<OcrCameraCaptureProps> = ({ onCapture, o
     // eslint-disable-next-line
   }, []);
 
+  // Capture image from video
   const handleCapture = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current) return;
     const video = videoRef.current;
-    const canvas = canvasRef.current;
+    const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
     if (ctx) {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(blob => {
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+      setCapturedImage(dataUrl);
+      setShowCrop(true);
+    }
+  };
+
+  // Crop complete callback
+  const onCropComplete = useCallback((_: Area, croppedPixels: Area) => {
+    setCroppedAreaPixels(croppedPixels);
+  }, []);
+
+  // Get cropped image as file
+  const getCroppedImg = async (): Promise<File | null> => {
+    if (!capturedImage || !croppedAreaPixels) return null;
+    const image = new window.Image();
+    image.src = capturedImage;
+    await new Promise((resolve) => (image.onload = resolve));
+    const canvas = document.createElement("canvas");
+    canvas.width = croppedAreaPixels.width;
+    canvas.height = croppedAreaPixels.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(
+      image,
+      croppedAreaPixels.x,
+      croppedAreaPixels.y,
+      croppedAreaPixels.width,
+      croppedAreaPixels.height,
+      0,
+      0,
+      croppedAreaPixels.width,
+      croppedAreaPixels.height
+    );
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
         if (blob) {
-          const file = new File([blob], `ocr-capture-${Date.now()}.jpg`, { type: "image/jpeg" });
-          setCaptured(true);
-          onCapture(file);
+          resolve(new File([blob], `ocr-crop-${Date.now()}.jpg`, { type: "image/jpeg" }));
+        } else {
+          resolve(null);
         }
       }, "image/jpeg", 0.95);
+    });
+  };
+
+  // Confirm crop and send to OCR
+  const handleCropConfirm = async () => {
+    const file = await getCroppedImg();
+    if (file) {
+      onCapture(file);
     }
   };
 
   const handleRetake = () => {
-    setCaptured(false);
+    setCapturedImage(null);
+    setShowCrop(false);
   };
 
   return (
@@ -72,7 +121,7 @@ export const OcrCameraCapture: React.FC<OcrCameraCaptureProps> = ({ onCapture, o
             <div className="text-destructive text-center mb-4">{error}</div>
           ) : (
             <>
-              {!captured ? (
+              {!capturedImage && (
                 <>
                   <video
                     ref={videoRef}
@@ -87,12 +136,26 @@ export const OcrCameraCapture: React.FC<OcrCameraCaptureProps> = ({ onCapture, o
                     </Button>
                   </div>
                 </>
-              ) : (
+              )}
+              {capturedImage && showCrop && (
                 <>
-                  <canvas ref={canvasRef} className="w-full rounded-lg border mb-4" style={{ display: "none" }} />
+                  <div className="relative w-full h-64 bg-black rounded-lg overflow-hidden mb-4">
+                    <Cropper
+                      image={capturedImage}
+                      crop={crop}
+                      zoom={zoom}
+                      aspect={4 / 3}
+                      onCropChange={setCrop}
+                      onZoomChange={setZoom}
+                      onCropComplete={onCropComplete}
+                    />
+                  </div>
                   <div className="flex gap-2">
                     <Button onClick={handleRetake} variant="outline" className="flex-1">
                       <RotateCcw className="h-4 w-4 mr-2" /> Retake
+                    </Button>
+                    <Button onClick={handleCropConfirm} className="flex-1">
+                      <Crop className="h-4 w-4 mr-2" /> Use Crop
                     </Button>
                   </div>
                 </>
