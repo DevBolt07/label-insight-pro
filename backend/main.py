@@ -4,13 +4,12 @@ import requests
 import re
 from typing import Dict, List, Optional
 from pydantic import BaseModel
-from paddleocr import PaddleOCR
 from PIL import Image
 import io
 import base64
-import numpy as np 
 import os
 from supabase import create_client, Client
+import pytesseract
 
 # Initialize Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
@@ -22,36 +21,28 @@ else:
     print("Warning: Supabase credentials not found. Profile features will be disabled.")
     supabase = None
 
-# Add this new function to get user profile
+# Function to get user profile
 def get_user_profile(user_id: str) -> Optional[Dict]:
-    """Fetch user profile from Supabase"""
     if not supabase:
         return None
-        
     try:
         response = supabase.table('profiles') \
             .select('*') \
             .eq('user_id', user_id) \
             .execute()
-        
         if response.data and len(response.data) > 0:
             return response.data[0]
         return None
     except Exception as e:
         print(f"Error fetching profile: {e}")
         return None
-    
+
 app = FastAPI()
 
-# Initialize PaddleOCR
-ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
-
-# Enable CORS for frontend-backend communication
-# For production, replace "*" with your actual frontend domain
-# Example: allow_origins=["https://your-app.com", "https://www.your-app.com"]
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -93,7 +84,7 @@ class OCRAnalysisResult(BaseModel):
     raw_text: str
     confidence: float
 
-# Hidden sugars and harmful ingredients database
+# Hidden sugars and harmful ingredients
 HIDDEN_SUGARS = ['maltodextrin', 'dextrose', 'fructose', 'sucrose', 'corn syrup', 'high fructose corn syrup', 
                  'fruit juice concentrate', 'honey', 'agave nectar', 'maple syrup', 'molasses']
 
@@ -355,141 +346,78 @@ async def search_product(product_name: str):
     except Exception:
         return []
 
-# Categorize OCR text into different sections
+# --- OCR helper functions using pytesseract ---
 def categorize_text(text_blocks: List[tuple]) -> CategorizedText:
-    """
-    Categorize detected text into brand, slogans, marketing, nutrition facts, and miscellaneous.
-    text_blocks: List of (text, confidence) tuples
-    """
     categorized = CategorizedText()
-    
-    # Keywords for categorization
     nutrition_keywords = ['calories', 'protein', 'fat', 'carbohydrate', 'sugar', 'sodium', 
                          'fiber', 'vitamin', 'calcium', 'iron', 'serving', 'nutrition facts',
                          'energy', 'kcal', 'kj', 'saturated', 'trans', 'cholesterol']
-    
     marketing_keywords = ['new', 'improved', 'natural', 'organic', 'premium', 'fresh', 
                          'healthy', 'delicious', 'tasty', 'best', 'quality', 'authentic',
                          'traditional', 'homemade', 'artisan', 'gourmet', 'special']
-    
     slogan_indicators = ['!', 'taste', 'experience', 'enjoy', 'love', 'perfect', 'ultimate']
-    
-    # Process each text block
+
     all_text = []
     brand_candidates = []
-    
+
     for text, conf in text_blocks:
         text_lower = text.lower().strip()
         if not text_lower or len(text_lower) < 2:
             continue
-            
         all_text.append(text)
-        
-        # Brand name detection (usually uppercase, at top, prominent)
-        if text.isupper() and len(text) > 2 and len(text) < 30 and conf > 0.9:
+        if text.isupper() and len(text) > 2 and len(text) < 30:
             brand_candidates.append(text)
-        
-        # Nutrition facts detection
         if any(keyword in text_lower for keyword in nutrition_keywords):
-            # Try to extract key-value pairs
             parts = re.split(r'[:\-]', text)
             if len(parts) == 2:
                 categorized.nutrition_facts[parts[0].strip()] = parts[1].strip()
             else:
                 categorized.miscellaneous.append(text)
-        
-        # Marketing text detection
         elif any(keyword in text_lower for keyword in marketing_keywords):
             categorized.marketing_text.append(text)
-        
-        # Slogan detection (usually contains exclamation or marketing phrases)
         elif any(indicator in text_lower for indicator in slogan_indicators) or '!' in text:
             categorized.slogans.append(text)
-        
-        # Everything else goes to miscellaneous
         else:
             categorized.miscellaneous.append(text)
-    
-    # Select the most likely brand name (first uppercase text with high confidence)
+
     if brand_candidates:
         categorized.brand_name = brand_candidates[0]
-        # Remove brand from miscellaneous if it was added there
         categorized.miscellaneous = [t for t in categorized.miscellaneous if t != categorized.brand_name]
-    
+
     return categorized
 
-# Extract ingredients from detected text
 def extract_ingredients(text_blocks: List[str]) -> List[str]:
-    """
-    Extract ingredients list from OCR text.
-    Looks for patterns like "Ingredients:", ingredient lists with commas, etc.
-    """
     ingredients = []
     full_text = ' '.join(text_blocks)
-    
-    # Look for ingredients section
     ingredients_pattern = r'ingredients?[\s:]+([^.]+)'
     match = re.search(ingredients_pattern, full_text.lower())
-    
     if match:
         ingredients_text = match.group(1)
-        # Split by commas and clean up
         raw_ingredients = re.split(r',|;|\(|\)', ingredients_text)
         for ing in raw_ingredients:
-            ing = ing.strip()
-            # Remove percentages and clean
             ing = re.sub(r'\d+(\.\d+)?%', '', ing).strip()
             if ing and len(ing) > 1:
                 ingredients.append(ing.capitalize())
-    
     return ingredients
 
-# OCR Analysis endpoint
+# --- OCR endpoints using pytesseract ---
 @app.post("/analyze-image", response_model=OCRAnalysisResult)
 async def analyze_image(file: UploadFile = File(...)):
-    """
-    Analyze product package image using PaddleOCR.
-    Extracts ingredients and categorizes other text.
-    """
     try:
-        # Read the uploaded file
         contents = await file.read()
         image = Image.open(io.BytesIO(contents))
-        
-        # Convert PIL Image to numpy array for PaddleOCR
-        img_array = np.array(image)
-        
-        # Perform OCR
-        result = ocr.ocr(img_array, cls=True)
-        
-        if not result or not result[0]:
-            raise HTTPException(status_code=400, detail="No text detected in image")
-        
-        # Extract text and confidence scores
-        text_blocks = []
-        all_text = []
-        total_confidence = 0
-        count = 0
-        
-        for line in result[0]:
-            text = line[1][0]
-            confidence = line[1][1]
-            text_blocks.append((text, confidence))
-            all_text.append(text)
-            total_confidence += confidence
-            count += 1
-        
-        avg_confidence = (total_confidence / count) * 100 if count > 0 else 0
-        
-        # Extract ingredients
+
+        # OCR using pytesseract
+        ocr_result = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+        text_blocks = [(ocr_result['text'][i], float(ocr_result['conf'][i])/100 if ocr_result['conf'][i] != '-1' else 0.5) 
+                       for i in range(len(ocr_result['text'])) if ocr_result['text'][i].strip() != '']
+        all_text = [t[0] for t in text_blocks]
+        avg_confidence = (sum([t[1] for t in text_blocks]) / len(text_blocks)) * 100 if text_blocks else 0
+
         ingredients = extract_ingredients(all_text)
-        
-        # Categorize remaining text
         categorized = categorize_text(text_blocks)
-        
-        # Join all text for raw output
         raw_text = '\n'.join(all_text)
-        
+
         return OCRAnalysisResult(
             success=True,
             ingredients=ingredients,
@@ -497,75 +425,24 @@ async def analyze_image(file: UploadFile = File(...)):
             raw_text=raw_text,
             confidence=round(avg_confidence, 2)
         )
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
 
-# Alternative endpoint that accepts base64 image
+# Base64 endpoint
 @app.post("/analyze-image-base64", response_model=OCRAnalysisResult)
 async def analyze_image_base64(image_data: dict):
-    """
-    Analyze product package image from base64 string using PaddleOCR.
-    """
     try:
-        # Decode base64 image
         image_base64 = image_data.get('image')
         if not image_base64:
             raise HTTPException(status_code=400, detail="No image data provided")
-        
-        # Remove data URL prefix if present
         if ',' in image_base64:
             image_base64 = image_base64.split(',')[1]
-        
         image_bytes = base64.b64decode(image_base64)
         image = Image.open(io.BytesIO(image_bytes))
-        
-        # Convert PIL Image to numpy array for PaddleOCR
-        img_array = np.array(image)
-        
-        # Perform OCR
-        result = ocr.ocr(img_array, cls=True)
-        
-        if not result or not result[0]:
-            raise HTTPException(status_code=400, detail="No text detected in image")
-        
-        # Extract text and confidence scores
-        text_blocks = []
-        all_text = []
-        total_confidence = 0
-        count = 0
-        
-        for line in result[0]:
-            text = line[1][0]
-            confidence = line[1][1]
-            text_blocks.append((text, confidence))
-            all_text.append(text)
-            total_confidence += confidence
-            count += 1
-        
-        avg_confidence = (total_confidence / count) * 100 if count > 0 else 0
-        
-        # Extract ingredients
-        ingredients = extract_ingredients(all_text)
-        
-        # Categorize remaining text
-        categorized = categorize_text(text_blocks)
-        
-        # Join all text for raw output
-        raw_text = '\n'.join(all_text)
-        
-        return OCRAnalysisResult(
-            success=True,
-            ingredients=ingredients,
-            categorized_text=categorized,
-            raw_text=raw_text,
-            confidence=round(avg_confidence, 2)
-        )
-        
+        return await analyze_image(UploadFile(file=io.BytesIO(image_bytes), filename="image.png"))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
 
-# Health check endpoint
 @app.get("/")
 async def root():
     return {"message": "NutriLabel Analyzer API is running"}

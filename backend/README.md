@@ -1,20 +1,36 @@
-# Label Insight Pro - Backend API
 
-This is the Python backend for Label Insight Pro that provides OCR analysis using PaddleOCR and product analysis via Open Food Facts.
 
-## Features
+# Label Insight Pro – Backend API
 
-- **PaddleOCR Integration**: Extract text from product package images
-- **Intelligent Text Categorization**: Automatically categorizes detected text into:
+This is the Python backend for **Label Insight Pro**, providing OCR analysis using PaddleOCR and product analysis via Open Food Facts.
+
+---
+
+## 🚀 Features
+
+- **PaddleOCR Integration**  
+  Extract text from product package images.
+
+- **Intelligent Text Categorization**  
+  Automatically categorizes detected text into:
   - Brand Name
   - Marketing Slogans
   - Marketing Claims
   - Nutrition Facts
   - Miscellaneous Text
-- **Ingredient Extraction**: Identifies and extracts ingredient lists
-- **Product Analysis**: Analyzes products by barcode using Open Food Facts API
 
-## Setup Instructions
+- **Ingredient Extraction**  
+  Identifies and extracts ingredient lists.
+
+- **Product Analysis**  
+  Analyze products by barcode using Open Food Facts API.
+
+- **User Personalization**  
+  Optional user profile integration for allergies and medical conditions.
+
+---
+
+## ⚙️ Setup Instructions
 
 ### 1. Install Dependencies
 
@@ -23,33 +39,81 @@ cd backend
 pip install -r requirements.txt
 ```
 
+> **Note:**
+> - `opencv-python` version must be compatible with PaddleOCR (`<=4.6.0`)
+> - Supabase client version should be `supabase-py==2.23.0` or the latest stable release
+
+**Sample `requirements.txt` for Python 3.13:**
+
+```
+fastapi==0.104.1
+uvicorn==0.24.0
+requests==2.31.0
+rapidfuzz==3.5.2
+python-multipart==0.0.6
+pydantic>=2.6.0
+pillow==11.0.0
+pytesseract==0.3.13
+opencv-python<=4.6.0.66
+supabase-py==2.23.0
+paddleocr==2.7.3
+paddlepaddle==2.6.0
+```
+
+---
+
 ### 2. Run the Server
 
 ```bash
-python main.py
+uvicorn main:app --reload
 ```
 
-The server will start on `http://localhost:8000`
+Server will start at:
+
+```
+http://localhost:8000
+```
+
+---
 
 ### 3. Test the API
 
-Visit `http://localhost:8000` to see the health check message.
+Visit:
 
-## API Endpoints
+```
+http://localhost:8000/
+```
 
-### OCR Analysis
+You should see:
 
-**POST /analyze-image**
-- Upload an image file for OCR analysis
-- Content-Type: multipart/form-data
-- Body: file (image file)
+```json
+{"message": "NutriLabel Analyzer API is running"}
+```
 
-**POST /analyze-image-base64**
-- Analyze image from base64 string
-- Content-Type: application/json
-- Body: `{ "image": "base64_string_here" }`
+---
 
-Response:
+## 📡 API Endpoints
+
+### 1. OCR Analysis
+
+#### `POST /analyze-image`
+
+- Upload an image file for OCR analysis  
+- Content-Type: `multipart/form-data`  
+- Body: `file` (image file)
+
+#### `POST /analyze-image-base64`
+
+- Analyze image from a base64 string  
+- Content-Type: `application/json`  
+- Body:
+
+```json
+{ "image": "base64_string_here" }
+```
+
+**Sample Response:**
+
 ```json
 {
   "success": true,
@@ -66,152 +130,195 @@ Response:
 }
 ```
 
-### Product Analysis
+---
 
-**POST /analyze-product**
-- Analyze product by barcode
-- Body: `{ "barcode": "123456789", "health_conditions": [] }`
+### 2. Product Analysis
 
-## Technical Details
+#### `POST /analyze-product`
+
+Analyze product by barcode.
+
+**Body:**
+
+```json
+{
+  "barcode": "123456789",
+  "user_id": "optional_user_id"
+}
+```
+
+> If `user_id` is provided, personalized recommendations based on allergies/medical conditions are returned.
+
+---
+
+### 3. Product Search
+
+#### `GET /search-product/{product_name}`
+
+Search Open Food Facts database by product name.  
+Returns top 10 matches.
+
+---
+
+## 🧠 Technical Details
 
 ### PaddleOCR Configuration
-- Language: English
+
+- Language: English (`en`)
 - Angle Classification: Enabled
 - Logging: Disabled (for cleaner output)
 
+---
+
 ### Text Categorization Logic
 
-The backend uses keyword matching and pattern recognition to categorize text:
+- **Brand Name**: Uppercase text with high confidence at top of image  
+- **Slogans**: Text containing exclamation marks or marketing phrases  
+- **Marketing Text**: Contains words like "natural", "organic", "premium"  
+- **Nutrition Facts**: Contains nutrition keywords like "calories", "protein", etc.  
+- **Miscellaneous**: Everything else
 
-1. **Brand Name**: Uppercase text with high confidence at the top of the image
-2. **Slogans**: Text containing exclamation marks or marketing phrases
-3. **Marketing Text**: Contains words like "natural", "organic", "premium", etc.
-4. **Nutrition Facts**: Contains nutrition keywords like "calories", "protein", etc.
-5. **Miscellaneous**: Everything else
+---
 
 ### Ingredient Extraction
 
-The system looks for patterns like:
-- "Ingredients:" followed by comma-separated list
-- Removes percentages and cleans up text
-- Capitalizes ingredient names for consistency
+- Looks for patterns like `Ingredients:` followed by comma-separated list  
+- Removes percentages, cleans text, and capitalizes ingredient names
 
-## CORS Configuration
+---
 
-The backend allows all origins (`*`) for development. For production, update the CORS settings in `main.py` to restrict to your frontend domain.
+### CORS Configuration
 
-## Requirements
+For development, all origins are allowed:
 
-- Python 3.8+
-- FastAPI
-- PaddleOCR
-- PaddlePaddle
-- PIL (Pillow)
-- NumPy
-
-## Troubleshooting
-
-### PaddleOCR Installation Issues
-
-If you encounter issues installing PaddlePaddle:
-1. Make sure you have Python 3.8 or newer
-2. Try installing with: `pip install paddlepaddle==2.6.0`
-3. For GPU support, install: `pip install paddlepaddle-gpu`
-
-### Port Already in Use
-
-If port 8000 is already in use, modify the port in `main.py`:
-```python
-uvicorn.run(app, host="0.0.0.0", port=8001)
-```
-
-## Development
-
-### Running with npm scripts (Recommended)
-
-From the project root directory:
-
-```bash
-# Install Python dependencies
-npm run backend:install
-
-# Start the backend server
-npm run backend:start
-
-# Run both frontend and backend together
-npm run dev:all
-```
-
-### Running with shell scripts
-
-**Unix/Mac:**
-```bash
-cd backend
-./start.sh
-```
-
-**Windows:**
-```batch
-cd backend
-start.bat
-```
-
-The backend automatically reloads when code changes are detected (when run with `uvicorn --reload`).
-
-## Production Deployment
-
-### Environment Configuration
-
-1. Update frontend `.env` file with production backend URL:
-```
-VITE_BACKEND_URL=https://your-backend-server.com
-```
-
-2. Update CORS settings in `main.py`:
 ```python
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://your-frontend-domain.com"],  # Replace with actual domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 ```
 
-### Deployment Checklist
+For production, restrict `allow_origins` to your frontend domain.
 
-- [ ] Set production backend URL in frontend `.env`
-- [ ] Update CORS origins in `backend/main.py`
-- [ ] Install Python dependencies: `pip install -r requirements.txt`
-- [ ] Test backend health endpoint: `curl https://your-backend-server.com/`
-- [ ] Verify OCR endpoint is accessible from frontend
-- [ ] Configure SSL/TLS certificates for HTTPS
-- [ ] Set up process manager (PM2, systemd, or supervisor)
-- [ ] Configure reverse proxy (nginx or similar)
+---
 
-### Production Server
+## 📦 Requirements
 
-For production deployment, use a production-ready server:
+- Python 3.8+ (Python 3.13 confirmed)
+- FastAPI
+- PaddleOCR
+- PaddlePaddle
+- PIL (Pillow)
+- NumPy
+- pytesseract
+- OpenCV (compatible version)
+- supabase-py
+
+---
+
+## 🛠️ Troubleshooting
+
+### PaddleOCR Installation Issues
+
+- Ensure Python 3.8+
+- Install CPU version:
 
 ```bash
-# Using uvicorn with multiple workers
+pip install paddlepaddle==2.6.0
+```
+
+- For GPU support:
+
+```bash
+pip install paddlepaddle-gpu
+```
+
+---
+
+### Port Already in Use
+
+```python
+uvicorn.run(app, host="0.0.0.0", port=8001)
+```
+
+---
+
+## 🧪 Development
+
+### Using uvicorn
+
+```bash
+uvicorn main:app --reload
+```
+
+Auto-reloads on code changes.
+
+---
+
+### Using Shell Scripts
+
+**Unix/Mac:**
+
+```bash
+cd backend
+./start.sh
+```
+
+**Windows:**
+
+```bash
+cd backend
+start.bat
+```
+
+---
+
+## 🚀 Production Deployment
+
+### Environment Configuration
+
+Update frontend `.env` with backend URL:
+
+```
+VITE_BACKEND_URL=https://your-backend-server.com
+```
+
+Restrict CORS in `main.py`:
+
+```python
+allow_origins=["https://your-frontend-domain.com"]
+```
+
+---
+
+### Deployment Commands
+
+```bash
+# Uvicorn with multiple workers
 uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 
-# Or using gunicorn with uvicorn workers
+# Or gunicorn with uvicorn workers
 gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ```
 
+---
+
 ### Recommended Hosting Options
 
-- **VPS/Cloud**: AWS EC2, Google Cloud Compute, DigitalOcean Droplets
-- **Platform as a Service**: Railway, Render, Heroku
-- **Serverless**: AWS Lambda with API Gateway (requires modifications)
+- **VPS/Cloud**: AWS EC2, Google Cloud, DigitalOcean  
+- **PaaS**: Railway, Render, Heroku  
+- **Serverless**: AWS Lambda + API Gateway (requires modifications)
 
-### Health Check
+---
 
-The root endpoint `/` returns a simple health check message:
+## ✅ Health Check
+
+Root endpoint `/` returns:
+
 ```json
 {"message": "NutriLabel Analyzer API is running"}
 ```
 
-Use this endpoint to verify the backend is running and accessible.
