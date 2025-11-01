@@ -4,7 +4,6 @@ import requests
 import re
 from typing import Dict, List, Optional
 from pydantic import BaseModel
-#from paddleocr import PaddleOCR
 from PIL import Image
 import io
 import base64
@@ -40,12 +39,7 @@ def get_user_profile(user_id: str) -> Optional[Dict]:
 
 app = FastAPI()
 
-# Initialize PaddleOCR
-#ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
-
-# Enable CORS for frontend-backend communication
-# For production, replace "*" with your actual frontend domain
-# Example: allow_origins=["https://your-app.com", "https://www.your-app.com"]
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -289,10 +283,7 @@ def get_personalized_recommendations(product_data: Dict, ingredients: List[Ingre
     return recommendations
 
 # Main endpoint to analyze product
-from alert_engine import AlertEngine
-from alert_types import HealthProfile, ProductAnalysis
-
-# Update the analyze-product endpoint
+# Update the analyze-product endpoint to accept user_id
 @app.post("/analyze-product", response_model=ProductAnalysis)
 async def analyze_product(barcode: str, user_id: Optional[str] = None):
     # Fetch product data from Open Food Facts
@@ -310,34 +301,7 @@ async def analyze_product(barcode: str, user_id: Optional[str] = None):
     # Calculate health score
     health_score = calculate_health_score(product_data, ingredients, alerts)
     
-    # === NEW: INTEGRATE ALERT ENGINE ===
-    personalized_alerts = []
-    if user_id:
-        user_profile = get_user_profile(user_id)
-        if user_profile:
-            # Convert to HealthProfile format for alert engine
-            health_profile = HealthProfile(
-                age=user_profile.get('age', 30),
-                conditions=user_profile.get('medical_conditions', []),
-                allergies=user_profile.get('allergies', []),
-                dietary_preferences=user_profile.get('dietary_preferences', []),
-                restrictions=user_profile.get('restrictions', [])
-            )
-            
-            # Create ProductAnalysis for alert engine
-            product_analysis = ProductAnalysis(
-                sugar=product_data.get('nutriments', {}).get('sugars_100g', 0),
-                salt=product_data.get('nutriments', {}).get('salt_100g', 0),
-                saturated_fat=product_data.get('nutriments', {}).get('saturated-fat_100g', 0),
-                additives=product_data.get('additives_tags', []),
-                ingredients=[ing.name for ing in ingredients],
-                nova_group=product_data.get('nova_group', 1)
-            )
-            
-            # Generate personalized alerts
-            personalized_alerts = AlertEngine.generate_alerts(health_profile, product_analysis)
-    
-    # Get existing personalized recommendations
+    # Get user profile and generate personalized recommendations
     personalized_recommendations = []
     if user_id:
         user_profile = get_user_profile(user_id)
@@ -348,24 +312,22 @@ async def analyze_product(barcode: str, user_id: Optional[str] = None):
                 product_data, ingredients, conditions, allergies
             )
     
-    # Convert alert engine alerts to HealthAlert format
-    engine_alerts = [
-        HealthAlert(
-            type=alert.alert_type,
-            message=alert.message,
-            severity=alert.level
-        ) for alert in personalized_alerts
-    ]
-    
-    # Combine both alert systems
-    all_alerts = alerts + engine_alerts
+    # Determine processing level
+    nova_group = product_data.get('nova_group', 1)
+    processing_levels = {
+        1: "Unprocessed or minimally processed",
+        2: "Processed culinary ingredients",
+        3: "Processed foods",
+        4: "Ultra-processed foods"
+    }
+    processing_level = processing_levels.get(nova_group, "Unknown")
     
     return ProductAnalysis(
         product_name=product_data.get('product_name', 'Unknown Product'),
         brand=product_data.get('brands', 'Unknown Brand'),
         health_score=health_score,
         ingredients=ingredients,
-        alerts=all_alerts,  # Now includes personalized alerts
+        alerts=alerts,
         nutri_score=product_data.get('nutriscore_grade', 'Unknown').upper(),
         processing_level=processing_level,
         personalized_recommendations=personalized_recommendations
@@ -396,8 +358,8 @@ def categorize_text(text_blocks: List[tuple]) -> CategorizedText:
     slogan_indicators = ['!', 'taste', 'experience', 'enjoy', 'love', 'perfect', 'ultimate']
 
     all_text = []
-    brand_candidates = [] 
-    
+    brand_candidates = []
+
     for text, conf in text_blocks:
         text_lower = text.lower().strip()
         if not text_lower or len(text_lower) < 2:

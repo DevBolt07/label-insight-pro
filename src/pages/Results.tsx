@@ -12,19 +12,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye, MessageCircle, Sparkles, Package, MapPin, Factory, Info, Leaf, Calendar, Globe, Skull } from "lucide-react";
+import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye, MessageCircle, Sparkles, Package, MapPin, Factory, Info, Leaf, Calendar, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductData } from "@/services/openFoodFacts";
 import { OCRResult } from "@/services/ocrService";
 import { IngredientAnalysis, ingredientAnalysisService } from "@/services/ingredientAnalysisService";
 import { User } from "@supabase/supabase-js";
-
-interface PersonalizedAlert {
-  type: string;
-  message: string;
-  severity: 'low' | 'medium' | 'high';
-  category?: string; // 'allergy', 'condition', 'preference', 'medication'
-}
 
 interface ResultsProps {
   onNavigate: (page: string, data?: any) => void;
@@ -36,73 +29,8 @@ interface ResultsProps {
     amazonLink?: string;
     featured?: boolean;
     scanMethod?: 'barcode' | 'ocr';
-    personalizedAlerts?: PersonalizedAlert[]; 
   };
 }
-
-// Personalized Alert Card Component
-const PersonalizedAlertCard = ({ alert, user }: { alert: PersonalizedAlert, user: User }) => {
-  const getAlertIcon = (severity: string) => {
-    switch (severity) {
-      case 'high': 
-        return <Skull className="w-5 h-5 text-red-600" />;
-      case 'medium': 
-        return <AlertTriangle className="w-5 h-5 text-yellow-600" />;
-      case 'low':
-        return <Info className="w-5 h-5 text-blue-600" />;
-      default: 
-        return <Heart className="w-5 h-5 text-green-600" />;
-    }
-  };
-
-  const getAlertStyles = (severity: string) => {
-    switch (severity) {
-      case 'high': 
-        return 'border-red-500 bg-red-50 text-red-800 border-l-4';
-      case 'medium': 
-        return 'border-yellow-500 bg-yellow-50 text-yellow-800 border-l-4';
-      case 'low':
-        return 'border-blue-500 bg-blue-50 text-blue-800 border-l-4';
-      default: 
-        return 'border-gray-500 bg-gray-50 text-gray-800 border-l-4';
-    }
-  };
-
-  const getCategoryBadge = (category?: string) => {
-    if (!category) return null;
-    
-    const categoryStyles = {
-      allergy: 'bg-red-100 text-red-800 border-red-200',
-      condition: 'bg-orange-100 text-orange-800 border-orange-200',
-      preference: 'bg-blue-100 text-blue-800 border-blue-200',
-      medication: 'bg-purple-100 text-purple-800 border-purple-200'
-    };
-
-    return (
-      <Badge 
-        variant="outline" 
-        className={`text-xs ${categoryStyles[category as keyof typeof categoryStyles] || 'bg-gray-100'}`}
-      >
-        {category}
-      </Badge>
-    );
-  };
-
-  return (
-    <div className={`p-4 rounded-lg ${getAlertStyles(alert.severity)} animate-scale-in`}>
-      <div className="flex items-start gap-3">
-        {getAlertIcon(alert.severity)}
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="font-medium text-sm">{alert.message}</p>
-            {getCategoryBadge(alert.category)}
-          </div>
-          <p className="text-xs opacity-75">Personalized for your health profile</p>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // No mock data - all data comes from real scans and API
 
@@ -790,9 +718,9 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
           )}>
             <TabsTrigger value="alerts" className="rounded-xl">
               Alerts
-              {(alerts.length > 0 || data?.personalizedAlerts?.length) && (
+              {alerts.length > 0 && (
                 <Badge variant="destructive" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
-                  {(alerts.length + (data?.personalizedAlerts?.length || 0))}
+                  {alerts.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -820,30 +748,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
             )}
           </TabsList>
 
-          {/* UPDATED ALERTS TAB CONTENT */}
           <TabsContent value="alerts" className="space-y-3 mt-4">
-            {/* Personalized Alerts Section */}
-            {data?.personalizedAlerts && data.personalizedAlerts.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                  <h4 className="text-title-medium text-foreground font-semibold">Personalized Health Alerts</h4>
-                  <Badge variant="default" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
-                    {data.personalizedAlerts.length}
-                  </Badge>
-                </div>
-                {data.personalizedAlerts.map((alert, index) => (
-                  <PersonalizedAlertCard 
-                    key={`personalized-${index}`} 
-                    alert={alert} 
-                    user={user}
-                  />
-                ))}
-                <div className="border-t border-border pt-3"></div>
-              </div>
-            )}
-
-            {/* Existing General Alerts */}
             {alerts.length > 0 ? (
               alerts.map((alert) => (
                 <IngredientAlertCard
@@ -858,10 +763,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                   <CheckCircle className="h-12 w-12 text-healthy mx-auto" />
                   <h3 className="text-title-large text-foreground">All Clear!</h3>
                   <p className="text-sm text-muted-foreground">
-                    {data?.personalizedAlerts && data.personalizedAlerts.length > 0 
-                      ? "No additional health alerts" 
-                      : "No health alerts for your profile"
-                    }
+                    No health alerts for your profile
                   </p>
                 </div>
               </Card>

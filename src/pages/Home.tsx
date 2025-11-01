@@ -19,7 +19,7 @@ import type { User } from '@supabase/supabase-js';
 
 interface HomeProps {
   onNavigate: (page: string, data?: any) => void;
-  user: User; 
+  user: User;
 }
 
 export function Home({ onNavigate, user }: HomeProps) {
@@ -80,79 +80,59 @@ export function Home({ onNavigate, user }: HomeProps) {
     setShowBarcodeScanner(true);
   };
 
-  // In Home.tsx, update the handleBarcodeScanResult function
-const handleBarcodeScanResult = async (result: BarcodeScanResult) => {
-  setShowBarcodeScanner(false);
-  setIsScanning(true);
+  const handleBarcodeScanResult = async (result: BarcodeScanResult) => {
+    setShowBarcodeScanner(false);
+    setIsScanning(true);
 
-  try {
-    const productData = await openFoodFactsService.getProductByBarcode(result.code);
-    
-    if (productData) {
-      const savedProduct = await productService.createOrUpdateProduct({
-        // ... your existing product data
-      });
-
-      await scanHistoryService.addScanToHistory({
-        user_id: user.id,
-        product_id: savedProduct.id,
-        scan_method: 'barcode'
-      });
-
-      // === NEW: Get Personalized Alerts ===
-      const personalizedAlerts = await getPersonalizedAlerts(user.id, productData);
-      console.log('Personalized alerts:', personalizedAlerts);
+    try {
+      const productData = await openFoodFactsService.getProductByBarcode(result.code);
       
-      setIsScanning(false);
-      onNavigate("results", {
-        productData,
-        scanned: true,
-        personalizedAlerts // Pass to results page
-      });
-    } else {
+      if (productData) {
+        const savedProduct = await productService.createOrUpdateProduct({
+          barcode: result.code,
+          name: productData.name,
+          brand: productData.brand,
+          image_url: productData.image,
+          categories: productData.categories,
+          ingredients: productData.ingredients,
+          grade: productData.grade,
+          health_score: productData.healthScore,
+          nutriscore: productData.nutriscore,
+          nova_group: productData.nova_group,
+          allergens: productData.allergens,
+          additives: productData.additives,
+          health_warnings: productData.healthWarnings,
+          nutrition_facts: productData.nutritionFacts
+        });
+
+        await scanHistoryService.addScanToHistory({
+          user_id: user.id,
+          product_id: savedProduct.id,
+          scan_method: 'barcode'
+        });
+
+        setIsScanning(false);
+        onNavigate("results", {
+          productData,
+          scanned: true
+        });
+      } else {
+        setIsScanning(false);
+        toast({
+          title: "Product Not Found",
+          description: `No product found for barcode: ${result.code}`,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
       setIsScanning(false);
       toast({
-        title: "Product Not Found",
-        description: `No product found for barcode: ${result.code}`,
+        title: "Scan Error",
+        description: "Failed to fetch product information. Please try again.",
         variant: "destructive"
       });
     }
-  } catch (error) {
-    setIsScanning(false);
-    toast({
-      title: "Scan Error",
-      description: "Failed to fetch product information. Please try again.",
-      variant: "destructive"
-    });
-  }
-};
-
-// Add this function to fetch personalized alerts
-// Add this function to your Home.tsx
-const getPersonalizedAlerts = async (userId: string, productData: any): Promise<any[]> => {
-  try {
-    const response = await fetch('http://localhost:8000/analyze-product', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        barcode: productData.code || 'test', // Use actual barcode or test value
-        user_id: userId
-      }),
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log('Personalized alerts response:', result);
-      return result.alerts || [];
-    }
-  } catch (error) {
-    console.error('Failed to fetch personalized alerts:', error);
-  }
-  
-  return [];
-};
+  };
 
   const handleOCRImageSelect = async (file: File) => {
     setShowOCRScanner(false);
