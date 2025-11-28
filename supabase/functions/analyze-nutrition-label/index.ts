@@ -1,87 +1,94 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { corsHeaders } from '../_shared/cors.ts';
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai';
+import { Buffer } from "https://deno.land/std@0.177.0/node/buffer.ts";
 
-const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+// Initialize the Gemini client
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+if (!GEMINI_API_KEY) {
+  console.error('Missing GEMINI_API_KEY environment variable.');
+}
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY!);
+// Use the latest Flash model which is fast and supports vision
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// The analysis prompt
+const prompt = `
+  Analyze the provided image of a nutrition label and return a detailed JSON object.
+  The JSON object should have the following structure:
+  {
+    "product_name": "Name of the Product",
+    "ingredients": ["Ingredient 1", "Ingredient 2", ...],
+    "allergens": ["Allergen 1", "Allergen 2", ...],
+    "nutritional_info": {
+      "calories": "Value",
+      "total_fat": "Value",
+      "saturated_fat": "Value",
+      "trans_fat": "Value",
+      "cholesterol": "Value",
+      "sodium": "Value",
+      "total_carbohydrate": "Value",
+      "dietary_fiber": "Value",
+      "sugars": "Value",
+      "protein": "Value"
+    },
+    "health_analysis": "A brief summary of the product's healthiness, mentioning key good and bad points.",
+    "health_score": "A score from 1 (unhealthy) to 10 (very healthy).",
+    "alerts": ["Warning about high sugar content", "Contains artificial sweeteners", ...],
+    "suggestions": ["Consider a whole-grain alternative", "Look for options with less sodium", ...]
+  }
+  If any information is not present on the label, omit the corresponding key or set its value to null.
+  Focus on accuracy. Extract only the information that is clearly visible in the image.
+  Do not hallucinate or invent information. The entire response must be a single JSON object, without any markdown formatting like \\\`\\\`\\\`json.
+`;
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { image } = await req.json(); // Expecting base64 image string (without data:image/ prefix)
+    if (!GEMINI_API_KEY) {
+      throw new Error('Server configuration error: Missing Gemini API Key.');
+    }
+
+    // The client sends the raw image file in the body, so we read it as a blob.
+    const imageBlob = await req.blob();
+    if (!imageBlob || imageBlob.size === 0) {
+      throw new Error('Image file is required in the request body.');
+    }
+
+    // Convert the image blob to a base64 string for the Gemini API
+    const imageBuffer = await imageBlob.arrayBuffer();
+    const imageBase64 = Buffer.from(imageBuffer).toString('base64');
+
+    // Create the image part for the Gemini API request
+    const imagePart = {
+      inlineData: {
+        data: imageBase64,
+        mimeType: imageBlob.type,
+      },
+    };
     
-    if (!image) {
-      throw new Error('No image data provided');
-    }
+    // Assemble the request for Gemini
+    const result = await model.generateContent([prompt, imagePart]);
+    const response = result.response;
+    const text = response.text();
 
-    console.log('Analyzing nutrition label image with Gemini...');
+    // Clean the response text to get a valid JSON string
+    // The Gemini response sometimes includes \\\`\\\`\\\`json markdown, so we remove it.
+    const jsonString = text.replace(/\\\`\\\`\\\`json/g, '').replace(/\\\`\\\`\\\`/g, '').trim();
+    const data = JSON.parse(jsonString);
 
-    // System prompt to ensure valid JSON output
-    const systemPrompt = `You are a nutrition expert AI. 
-    Analyze this image of a food product label. Extract the following information into a valid JSON object:
-    1. "raw_text": All visible text on the label.
-    2. "brand_name": The likely brand name.
-    3. "product_name": The product name.
-    4. "ingredients": A list of ingredient strings (clean up noise).
-    5. "nutrition_facts": An object with keys like 'calories', 'protein', 'fat', 'carbohydrates', 'sugar', 'sodium', 'fiber'. Use numeric values where possible, or strings with units.
-    6. "claims": Marketing claims (e.g., "Organic", "Gluten-Free").
-    7. "health_analysis": A brief assessment object containing 'warnings' (array of strings) and 'positives' (array of strings).
-
-    Return ONLY the raw JSON. Do not use markdown formatting.`;
-
-    // Call Gemini 1.5 Flash (Multimodal)
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: systemPrompt },
-            { 
-              inline_data: { 
-                mime_type: "image/jpeg", 
-                data: image 
-              } 
-            }
-          ]
-        }],
-        generation_config: {
-          temperature: 0.1,
-          response_mime_type: "application/json"
-        }
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
-    }
-
-    const data = await response.json();
-    const contentText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
-    // Parse the JSON response
-    let result;
-    try {
-      result = JSON.parse(contentText);
-    } catch (e) {
-      console.error("Failed to parse Gemini JSON:", e);
-      throw new Error("Failed to parse analysis results");
-    }
-
-    return new Response(JSON.stringify(result), {
+    // Return the successful analysis
+    return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (error) {
-    console.error('Error in analyze-nutrition-label:', error);
+    // Log the actual error to the Supabase function logs
+    console.error('Error processing request:', error);
+    
+    // Return a generic error response to the client
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

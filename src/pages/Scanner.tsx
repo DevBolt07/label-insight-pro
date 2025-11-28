@@ -174,9 +174,12 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     } catch (error) {
       setIsScanning(false);
       
+      // Log the detailed error to the console
+      console.error("Error during OCR analysis:", error);
+
       toast({
         title: "Analysis Failed",
-        description: "There was an error analyzing the nutrition label. Please try again.",
+        description: "There was an error analyzing the nutrition label. Check the console for details.",
         variant: "destructive",
         duration: 8000,
       });
