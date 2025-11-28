@@ -1,111 +1,73 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface IngredientAnalysis {
-  name: string;
-  summary: string;
-  healthEffects: string[];
-  commonUses: string[];
-  safetyInfo: string;
-  personalizedWarnings: string[];
-  alternatives: string[];
-  category: 'natural' | 'processed' | 'artificial' | 'preservative' | 'additive';
-}
-
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { ingredientName, userProfile } = await req.json();
+    if (!ingredientName) throw new Error('No ingredient name provided');
 
-    if (!ingredientName) {
-      throw new Error('No ingredient name provided');
-    }
+    console.log(`Analyzing ingredient with Gemini: ${ingredientName}`);
 
-    console.log(`Analyzing ingredient: ${ingredientName}`);
-
-    const systemPrompt = `You are a nutrition and food science expert. Analyze the ingredient "${ingredientName}" and provide comprehensive information.
-
+    const systemPrompt = `You are a nutrition expert. Analyze the ingredient "${ingredientName}".
     ${userProfile ? `Consider the user's profile: ${JSON.stringify(userProfile)}` : ''}
 
-    Return your analysis in the following JSON format:
+    Return ONLY a valid JSON object with this exact schema:
     {
       "name": "ingredient name",
-      "summary": "concise 2-3 sentence summary of what this ingredient is",
-      "healthEffects": ["positive and negative health effects"],
-      "commonUses": ["common uses in food products"],
-      "safetyInfo": "safety information and potential concerns",
-      "personalizedWarnings": ["specific warnings based on user profile"],
-      "alternatives": ["healthier alternatives if applicable"],
-      "category": "natural|processed|artificial|preservative|additive"
-    }
+      "summary": "concise 2-3 sentence summary",
+      "healthEffects": ["effect 1", "effect 2"],
+      "commonUses": ["use 1", "use 2"],
+      "safetyInfo": "safety summary",
+      "personalizedWarnings": ["warning 1 based on user profile"],
+      "alternatives": ["healthier alternative 1"],
+      "category": "natural" | "processed" | "artificial" | "preservative" | "additive"
+    }`;
 
-    Be accurate, evidence-based, and consider the user's specific health conditions and dietary restrictions when providing personalized warnings.`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: `Analyze the ingredient: ${ingredientName}`
-          }
-        ],
-        max_tokens: 800,
-        temperature: 0.2
+        contents: [{ role: 'user', parts: [{ text: `Analyze the ingredient: ${ingredientName}` }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: { temperature: 0.2, response_mime_type: "application/json" }
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('OpenAI API error:', errorData);
-      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+      throw new Error(`Gemini API error: ${errorData.error?.message || 'Unknown error'}`);
     }
 
     const data = await response.json();
-    const content = data.choices[0].message.content;
+    const contentText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
-    console.log('Raw AI response:', content);
-
-    // Parse the JSON response
-    let analysisResult: IngredientAnalysis;
+    let analysisResult;
     try {
-      analysisResult = JSON.parse(content);
-    } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', parseError);
-      // Fallback response
+      analysisResult = JSON.parse(contentText);
+    } catch (e) {
+      // Fallback if JSON parsing fails
       analysisResult = {
         name: ingredientName,
-        summary: `${ingredientName} is a food ingredient commonly used in processed foods.`,
-        healthEffects: ['Effects vary depending on individual sensitivity'],
-        commonUses: ['Food production and preservation'],
-        safetyInfo: 'Generally recognized as safe when consumed in normal amounts',
+        summary: "Analysis unavailable.",
+        healthEffects: [],
+        commonUses: [],
+        safetyInfo: "Unknown",
         personalizedWarnings: [],
-        alternatives: ['Natural alternatives may be available'],
-        category: 'processed'
+        alternatives: [],
+        category: "processed"
       };
     }
-
-    console.log('Ingredient analysis result:', analysisResult);
 
     return new Response(JSON.stringify(analysisResult), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -114,8 +76,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in analyze-ingredient function:', error);
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error',
-      details: 'Failed to analyze ingredient'
+      error: error instanceof Error ? error.message : 'Unknown error' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
