@@ -32,56 +32,46 @@ serve(async (req) => {
 
     console.log(`Processing health chat question with Gemini: ${message}`);
 
-    const systemContext = `You are a knowledgeable and friendly nutrition advisor and health coach. You provide personalized, evidence-based advice about food, nutrition, and health.
+    const systemPrompt = `You are a knowledgeable and friendly nutrition advisor.
+    CURRENT CONTEXT: ${productData ? JSON.stringify(productData) : 'None'}
+    USER PROFILE: ${userProfile ? JSON.stringify(userProfile) : 'None'}
+    GUIDELINES: Be helpful, concise, and never give medical diagnoses.`;
 
-CURRENT CONTEXT:
-${productData ? `Product being analyzed: ${JSON.stringify(productData, null, 2)}` : 'No specific product being analyzed'}
-
-USER PROFILE:
-${userProfile ? JSON.stringify(userProfile, null, 2) : 'No user profile available'}
-
-GUIDELINES:
-- Provide personalized advice based on the user's health profile
-- Be encouraging and supportive
-- Mention specific health concerns when relevant
-- Keep responses concise (2-3 paragraphs max)
-- Always recommend consulting healthcare professionals for serious concerns
-- IMPORTANT: Never provide medical diagnosis.`;
-
-    // Map history to Gemini format
     let contents = [];
-    
-    // Add system context as first user message
-    contents.push({
-      parts: [{ text: systemContext }]
-    });
-
     if (conversationHistory && conversationHistory.length > 0) {
       const recentHistory = conversationHistory.slice(-10);
       for (const msg of recentHistory) {
         if (msg.role === 'system') continue;
         contents.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: msg.content }]
         });
       }
     }
 
     contents.push({
+      role: 'user',
       parts: [{ text: message }]
     });
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+    // USE v1beta AND gemini-2.5-flash
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: contents,
-        generationConfig: { maxOutputTokens: 500, temperature: 0.7 }
+        // USE snake_case FOR REST API
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        generation_config: { 
+            max_output_tokens: 500, 
+            temperature: 0.7 
+        }
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Gemini API error: ${errorData.error?.message || 'Unknown error'}`);
+      throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
     }
 
     const data = await response.json();
@@ -100,7 +90,7 @@ GUIDELINES:
     console.error('Error in health-chat function:', error);
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Unknown error',
-      response: "I'm having trouble connecting to my brain right now. Please try again in a moment."
+      response: "I'm having trouble connecting right now. Please try again."
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
