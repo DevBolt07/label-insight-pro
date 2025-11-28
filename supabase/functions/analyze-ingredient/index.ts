@@ -19,7 +19,7 @@ serve(async (req) => {
 
     console.log(`Analyzing ingredient with Gemini: ${ingredientName}`);
 
-    const prompt = `You are a nutrition expert. Analyze the ingredient "${ingredientName}".
+    const systemPrompt = `You are a nutrition expert. Analyze the ingredient "${ingredientName}".
     ${userProfile ? `Consider the user's profile: ${JSON.stringify(userProfile)}` : ''}
 
     Return ONLY a valid JSON object with this exact schema:
@@ -32,22 +32,26 @@ serve(async (req) => {
       "personalizedWarnings": ["warning 1 based on user profile"],
       "alternatives": ["healthier alternative 1"],
       "category": "natural" | "processed" | "artificial" | "preservative" | "additive"
-    }
-    
-    Analyze the ingredient: ${ingredientName}`;
+    }`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+    // USE v1beta AND gemini-2.5-flash
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2 }
+        contents: [{ role: 'user', parts: [{ text: `Analyze the ingredient: ${ingredientName}` }] }],
+        // USE snake_case FOR REST API
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        generation_config: { 
+            temperature: 0.2, 
+            response_mime_type: "application/json" 
+        }
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Gemini API error: ${errorData.error?.message || 'Unknown error'}`);
+      throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
     }
 
     const data = await response.json();
@@ -57,10 +61,10 @@ serve(async (req) => {
     try {
       analysisResult = JSON.parse(contentText);
     } catch (e) {
-      // Fallback if JSON parsing fails
+      console.error("JSON Parse Error", e);
       analysisResult = {
         name: ingredientName,
-        summary: "Analysis unavailable.",
+        summary: "Analysis unavailable due to parsing error.",
         healthEffects: [],
         commonUses: [],
         safetyInfo: "Unknown",
