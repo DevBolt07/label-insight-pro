@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +21,6 @@ interface ChatRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -29,13 +28,10 @@ serve(async (req) => {
   try {
     const { message, userProfile, productData, conversationHistory }: ChatRequest = await req.json();
 
-    if (!message) {
-      throw new Error('No message provided');
-    }
+    if (!message) throw new Error('No message provided');
 
-    console.log(`Processing health chat question: ${message}`);
+    console.log(`Processing health chat question with Gemini: ${message}`);
 
-    // Build context-aware system prompt
     const systemPrompt = `You are a knowledgeable and friendly nutrition advisor and health coach. You provide personalized, evidence-based advice about food, nutrition, and health.
 
 CURRENT CONTEXT:
@@ -45,59 +41,54 @@ USER PROFILE:
 ${userProfile ? JSON.stringify(userProfile, null, 2) : 'No user profile available'}
 
 GUIDELINES:
-- Always provide personalized advice based on the user's health profile
-- Be encouraging and supportive in your tone
-- Give actionable, practical advice
-- Mention specific health concerns when relevant to the user's profile
-- If asked about ingredients, explain their effects considering the user's conditions
-- Keep responses concise but informative (2-3 paragraphs max)
+- Provide personalized advice based on the user's health profile
+- Be encouraging and supportive
+- Mention specific health concerns when relevant
+- Keep responses concise (2-3 paragraphs max)
 - Always recommend consulting healthcare professionals for serious concerns
-- Use emojis sparingly but appropriately for a friendly tone
+- IMPORTANT: Never provide medical diagnosis.`;
 
-IMPORTANT: Never provide medical diagnosis or treatment advice. Always recommend consulting healthcare professionals for medical concerns.`;
-
-    // Prepare messages for OpenAI
-    let messages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt }
-    ];
-
-    // Add conversation history (last 10 messages to stay within token limits)
+    // Map history to Gemini format
+    let contents = [];
     if (conversationHistory && conversationHistory.length > 0) {
       const recentHistory = conversationHistory.slice(-10);
-      messages = messages.concat(recentHistory);
+      for (const msg of recentHistory) {
+        if (msg.role === 'system') continue;
+        contents.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        });
+      }
     }
 
-    // Add current user message
-    messages.push({ role: 'user', content: message });
+    contents.push({
+      role: 'user',
+      parts: [{ text: message }]
+    });
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o',
-        messages,
-        max_tokens: 500,
-        temperature: 0.7
+        contents: contents,
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: { maxOutputTokens: 500, temperature: 0.7 }
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('OpenAI API error:', errorData);
-      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+      throw new Error(`Gemini API error: ${errorData.error?.message || 'Unknown error'}`);
     }
 
     const data = await response.json();
-    const assistantMessage = data.choices[0].message.content;
-    
-    console.log('AI response generated successfully');
+    const assistantMessage = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!assistantMessage) throw new Error('No content in Gemini response');
 
     return new Response(JSON.stringify({
       response: assistantMessage,
-      conversationId: crypto.randomUUID() // For tracking conversations
+      conversationId: crypto.randomUUID()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -106,7 +97,7 @@ IMPORTANT: Never provide medical diagnosis or treatment advice. Always recommend
     console.error('Error in health-chat function:', error);
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Unknown error',
-      response: "I'm sorry, I'm having trouble processing your question right now. Please try again later, and remember to consult with healthcare professionals for any serious health concerns."
+      response: "I'm having trouble connecting to my brain right now. Please try again in a moment."
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
