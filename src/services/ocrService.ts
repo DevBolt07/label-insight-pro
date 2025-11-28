@@ -1,4 +1,4 @@
-import { getBackendEndpoint } from '@/config/backend';
+import { supabase } from "@/integrations/supabase/client";
 
 export interface CategorizedText {
   brand_name?: string;
@@ -6,18 +6,6 @@ export interface CategorizedText {
   marketing_text: string[];
   nutrition_facts: Record<string, string>;
   miscellaneous: string[];
-}
-
-export interface OCRResult {
-  text: string;
-  confidence: number;
-  nutritionData: NutritionData | null;
-  healthAnalysis: HealthAnalysis;
-  ingredients: string[];
-  claims: string[];
-  contradictions: string[];
-  categorizedText?: CategorizedText;
-  rawText?: string;
 }
 
 export interface NutritionData {
@@ -38,92 +26,106 @@ export interface HealthAnalysis {
   recommendations: string[];
 }
 
+export interface OCRResult {
+  text: string;
+  confidence: number;
+  nutritionData: NutritionData | null;
+  healthAnalysis: HealthAnalysis;
+  ingredients: string[];
+  claims: string[];
+  contradictions: string[];
+  categorizedText?: CategorizedText;
+  rawText?: string;
+}
+
 class OCRService {
   async processImage(imageFile: File): Promise<OCRResult> {
     try {
-      // Convert image to base64
+      console.log('Processing image with Supabase Edge Function (Gemini)...');
       const base64Image = await this.fileToBase64(imageFile);
-      
-      console.log('Starting PaddleOCR analysis...');
-      const backendResponse = await fetch(getBackendEndpoint('/analyze-image-base64'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ image: base64Image }),
+
+      // Call the new Edge Function
+      const { data, error } = await supabase.functions.invoke('analyze-nutrition-label', {
+        body: { image: base64Image }
       });
 
-      if (!backendResponse.ok) {
-        const errorText = await backendResponse.text();
-        throw new Error(`PaddleOCR backend error: ${backendResponse.status} - ${errorText}`);
-      }
+      if (error) throw new Error(`Analysis failed: ${error.message}`);
+      if (!data) throw new Error('No data received from analysis');
 
-      const backendData = await backendResponse.json();
-      console.log('PaddleOCR analysis successful:', backendData);
+      console.log('Gemini Analysis successful:', data);
+
+      // Map Gemini JSON response to your App's OCRResult format
+      const nutritionData = this.normalizeNutrition(data.nutrition_facts);
+      const ingredients = data.ingredients || [];
       
-      // Calculate health score based on ingredients
-      const healthScore = this.calculateHealthScore(backendData.ingredients);
+      // Calculate a basic health score based on findings
+      const healthScore = this.calculateHealthScore(ingredients, nutritionData);
       const grade = this.getGradeFromScore(healthScore);
-      
+
       return {
-        text: backendData.raw_text || '',
-        confidence: backendData.confidence || 0,
-        nutritionData: this.extractNutritionFromFacts(backendData.categorized_text.nutrition_facts),
+        text: data.raw_text || '',
+        confidence: 100, // Gemini is confident
+        nutritionData: nutritionData,
         healthAnalysis: {
           healthScore,
           grade,
-          warnings: this.generateWarnings(backendData.ingredients),
-          recommendations: this.generateRecommendations(backendData.ingredients)
+          warnings: data.health_analysis?.warnings || [],
+          recommendations: data.health_analysis?.positives || []
         },
-        ingredients: backendData.ingredients || [],
-        claims: backendData.categorized_text.marketing_text || [],
+        ingredients: ingredients,
+        claims: data.claims || [],
         contradictions: [],
-        categorizedText: backendData.categorized_text,
-        rawText: backendData.raw_text
+        categorizedText: {
+          brand_name: data.brand_name,
+          slogans: [],
+          marketing_text: data.claims || [],
+          nutrition_facts: data.nutrition_facts || {},
+          miscellaneous: []
+        },
+        rawText: data.raw_text
       };
     } catch (error) {
       console.error('OCR processing error:', error);
-      if (error instanceof Error) {
-        throw new Error(`Failed to process image: ${error.message}. Make sure the Python backend is running.`);
-      }
-      throw new Error('Failed to process image with PaddleOCR. Please ensure the backend server is running.');
+      throw error;
     }
   }
 
-  private extractNutritionFromFacts(facts: Record<string, string>): NutritionData | null {
-    if (!facts || Object.keys(facts).length === 0) return null;
+  // Helper to normalize nutrition keys from Gemini
+  private normalizeNutrition(facts: any): NutritionData {
+    if (!facts) return {};
     
-    const nutrition: NutritionData = {};
-    
-    // Parse nutrition facts from the dictionary
-    Object.entries(facts).forEach(([key, value]) => {
-      const keyLower = key.toLowerCase();
-      const numValue = parseFloat(value.replace(/[^\d.]/g, ''));
-      
-      if (keyLower.includes('calor')) nutrition.calories = numValue;
-      else if (keyLower.includes('protein')) nutrition.protein = numValue;
-      else if (keyLower.includes('carb')) nutrition.carbohydrates = numValue;
-      else if (keyLower.includes('fat') && !keyLower.includes('saturated')) nutrition.fat = numValue;
-      else if (keyLower.includes('sugar')) nutrition.sugar = numValue;
-      else if (keyLower.includes('sodium') || keyLower.includes('salt')) nutrition.sodium = numValue;
-      else if (keyLower.includes('fiber') || keyLower.includes('fibre')) nutrition.fiber = numValue;
-      else if (keyLower.includes('serving')) nutrition.servingSize = value;
-    });
-    
-    return nutrition;
+    // Helper to safely parse numbers
+    const parseVal = (val: any) => {
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
+      return undefined;
+    };
+
+    return {
+      calories: parseVal(facts.calories || facts.Energy || facts.energy),
+      protein: parseVal(facts.protein || facts.Protein),
+      carbohydrates: parseVal(facts.carbohydrates || facts.Carbs || facts.total_carbohydrate),
+      fat: parseVal(facts.fat || facts.Fat || facts.total_fat),
+      sugar: parseVal(facts.sugar || facts.Sugars || facts.sugars),
+      sodium: parseVal(facts.sodium || facts.Sodium),
+      fiber: parseVal(facts.fiber || facts.Fiber)
+    };
   }
 
-  private calculateHealthScore(ingredients: string[]): number {
-    let score = 80; // Base score
+  private calculateHealthScore(ingredients: string[], nutrition: NutritionData): number {
+    let score = 80;
     
+    // Deduct for sugar
+    if (nutrition.sugar && nutrition.sugar > 10) score -= 15;
+    
+    // Deduct for harmful ingredients
     const harmfulIngredients = [
-      'high fructose corn syrup', 'artificial', 'hydrogenated', 'trans fat',
-      'sodium nitrite', 'msg', 'aspartame', 'food coloring'
+      'high fructose corn syrup', 'hydrogenated', 'aspartame', 'sodium nitrite'
     ];
     
     ingredients.forEach(ingredient => {
-      const ingredientLower = ingredient.toLowerCase();
-      if (harmfulIngredients.some(harmful => ingredientLower.includes(harmful))) {
+      const lower = ingredient.toLowerCase();
+      if (harmfulIngredients.some(h => lower.includes(h))) {
         score -= 10;
       }
     });
@@ -139,41 +141,6 @@ class OCRService {
     return 'E';
   }
 
-  private generateWarnings(ingredients: string[]): string[] {
-    const warnings: string[] = [];
-    
-    ingredients.forEach(ingredient => {
-      const ingredientLower = ingredient.toLowerCase();
-      if (ingredientLower.includes('sugar') || ingredientLower.includes('syrup')) {
-        warnings.push('Contains added sugars');
-      }
-      if (ingredientLower.includes('artificial')) {
-        warnings.push('Contains artificial ingredients');
-      }
-      if (ingredientLower.includes('sodium') || ingredientLower.includes('salt')) {
-        warnings.push('May be high in sodium');
-      }
-    });
-    
-    return [...new Set(warnings)]; // Remove duplicates
-  }
-
-  private generateRecommendations(ingredients: string[]): string[] {
-    const recommendations: string[] = [];
-    
-    if (ingredients.some(i => i.toLowerCase().includes('sugar'))) {
-      recommendations.push('Consider products with less added sugar');
-    }
-    if (ingredients.some(i => i.toLowerCase().includes('artificial'))) {
-      recommendations.push('Look for products with natural ingredients');
-    }
-    if (ingredients.length > 10) {
-      recommendations.push('Simpler ingredient lists are often healthier');
-    }
-    
-    return recommendations;
-  }
-
   private async fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -186,10 +153,6 @@ class OCRService {
       };
       reader.onerror = error => reject(error);
     });
-  }
-
-  async cleanup() {
-    // No cleanup needed for PaddleOCR
   }
 }
 

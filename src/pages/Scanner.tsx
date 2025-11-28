@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Scan, Image, Zap, Loader2, FileText, AlertCircle } from "lucide-react";
+import { Scan, Image, Zap, Loader2, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { OCRScanner } from "@/components/ocr-scanner";
@@ -11,18 +10,16 @@ import { BarcodeScanResult } from "@/hooks/useBarcodeScanner";
 import { useToast } from "@/hooks/use-toast";
 import { scanHistoryService } from "@/services/scanHistoryService";
 import { productService } from "@/services/productService";
-import { ocrService, OCRResult } from "@/services/ocrService";
-import type { User } from '@supabase/supabase-js';
+import { OCRResult } from "@/services/ocrService";
+import type { User } from "@supabase/supabase-js";
 import { analyzeProductWithBackend, UserProfile } from "@/services/backendApi";
 import { useBackendHealth } from "@/hooks/useBackendHealth";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useTranslation } from "@/i18n";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
   user: User;
-  onProductScan?: (barcode: string) => Promise<void>;
-  loading?: boolean;
 }
 
 export function Scanner({ onNavigate, user }: ScannerProps) {
@@ -30,7 +27,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [showOCRScanner, setShowOCRScanner] = useState(false);
   const { toast } = useToast();
-  const { isHealthy: isBackendHealthy, isChecking: checkingBackend } = useBackendHealth();
+  useBackendHealth();
 
   const handleBarcodeScan = () => {
     setShowBarcodeScanner(true);
@@ -41,22 +38,19 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     setIsScanning(true);
 
     try {
-      // FIRST TRY TO USE YOUR BACKEND API
       try {
-        // Create a basic user profile (you'll want to get this from user data later)
         const userProfile: UserProfile = {
-          age: 30, // Default value - replace with actual user data
+          age: 30,
           hasDiabetes: false,
           hasHighBP: false,
           isChild: false,
           hasHeartDisease: false,
           isPregnant: false,
-          allergies: []
+          allergies: [],
         };
 
         const backendResult = await analyzeProductWithBackend(result.code, userProfile);
         
-        // Save product to database using backend result
         const savedProduct = await productService.createOrUpdateProduct({
           barcode: result.code,
           name: backendResult.product_name,
@@ -71,14 +65,13 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           allergens: [],
           additives: [],
           health_warnings: backendResult.alerts,
-          nutrition_facts: backendResult.nutritional_info || {}
+          nutrition_facts: backendResult.nutritional_info || {},
         });
 
-        // Add to scan history
         await scanHistoryService.addScanToHistory({
           user_id: user.id,
           product_id: savedProduct.id,
-          scan_method: 'barcode'
+          scan_method: 'barcode',
         });
 
         setIsScanning(false);
@@ -87,24 +80,21 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           productData: {
             ...savedProduct,
             healthWarnings: backendResult.alerts,
-            suggestions: backendResult.suggestions
+            suggestions: backendResult.suggestions,
           },
           scanned: true,
-          fromBackend: true
+          fromBackend: true,
         });
         
-        return; // Exit early since backend was successful
+        return;
         
       } catch (backendError) {
         console.log('Backend analysis failed, falling back to OpenFoodFacts:', backendError);
-        // If backend fails, fall back to OpenFoodFacts
       }
 
-      // FALLBACK TO OPEN FOOD FACTS
       const productData = await openFoodFactsService.getProductByBarcode(result.code);
       
       if (productData) {
-        // Save product to database
         const savedProduct = await productService.createOrUpdateProduct({
           barcode: result.code,
           name: productData.name,
@@ -119,14 +109,13 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           allergens: productData.allergens,
           additives: productData.additives,
           health_warnings: productData.healthWarnings,
-          nutrition_facts: productData.nutritionFacts
+          nutrition_facts: productData.nutritionFacts,
         });
 
-        // Add to scan history
         await scanHistoryService.addScanToHistory({
           user_id: user.id,
           product_id: savedProduct.id,
-          scan_method: 'barcode'
+          scan_method: 'barcode',
         });
 
         setIsScanning(false);
@@ -134,14 +123,14 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
         onNavigate("results", {
           productData,
           scanned: true,
-          fromBackend: false // Flag to indicate this came from OpenFoodFacts
+          fromBackend: false,
         });
       } else {
         setIsScanning(false);
         toast({
           title: "Product Not Found",
           description: `No product found for barcode: ${result.code}`,
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     } catch (error) {
@@ -149,7 +138,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       toast({
         title: "Scan Error",
         description: "Failed to fetch product information. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -167,26 +156,27 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     setIsScanning(true);
 
     try {
-      const ocrResult: OCRResult = await ocrService.processImage(file);
-      
-      // OCR scans don't have product_id, skip history for now
+      const { data: ocrResult, error } = await supabase.functions.invoke('analyze-nutrition-label', {
+          body: file,
+      });
 
+      if (error) {
+        throw error;
+      }
+      
       setIsScanning(false);
       
       onNavigate("results", {
-        ocrResult,
+        ocrResult: ocrResult as OCRResult,
         scanned: true,
-        scanMethod: 'ocr'
+        scanMethod: 'ocr',
       });
     } catch (error) {
       setIsScanning(false);
-      const errorMessage = error instanceof Error ? error.message : "Failed to process nutrition label";
       
       toast({
-        title: "Backend Not Running",
-        description: errorMessage.includes('backend') || errorMessage.includes('localhost:8000')
-          ? "Please start the Python backend server first. Run: cd backend && python main.py"
-          : errorMessage,
+        title: "Analysis Failed",
+        description: "There was an error analyzing the nutrition label. Please try again.",
         variant: "destructive",
         duration: 8000,
       });
@@ -197,7 +187,6 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     setShowOCRScanner(false);
   };
 
-  // Use same visual/markup pattern as Home quickActions so both pages match
   const { t } = useTranslation();
 
   const scanOptions = [
@@ -207,7 +196,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       title: t("nutrition_ocr"),
       description: t("nutrition_ocr_desc"),
       action: handleOCRScan,
-      gradient: "bg-gradient-primary"
+      gradient: "bg-gradient-primary",
     },
     {
       id: "barcode",
@@ -215,8 +204,8 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       title: t("scan_barcode"),
       description: t("scan_barcode_desc"),
       action: handleBarcodeScan,
-      gradient: "bg-gradient-warning"
-    }
+      gradient: "bg-gradient-warning",
+    },
   ];
 
   if (isScanning) {
@@ -276,9 +265,6 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       />
 
       <div className="px-4 py-6 max-w-md mx-auto space-y-6">
-        {/* Scanner Info */}
-
-        {/* Scan Options (use same look as Home quick actions) */}
         <div className="space-y-4">
           {scanOptions.map((option, index) => {
             const Icon = option.icon;
@@ -308,7 +294,6 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           })}
         </div>
 
-        {/* Tips */}
         <Card className="card-material">
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-2">
@@ -337,7 +322,6 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           </div>
         </Card>
 
-        {/* Barcode Scanner Modal */}
         {showBarcodeScanner && (
           <BarcodeScanner
             onScanSuccess={handleBarcodeScanResult}
@@ -345,7 +329,6 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
           />
         )}
 
-        {/* OCR Scanner Modal */}
         {showOCRScanner && (
           <OCRScanner
             onImageSelect={handleOCRImageSelect}
