@@ -220,7 +220,7 @@ export function Home({ onNavigate, user }: HomeProps) {
   return (
     <div className="min-h-screen bg-background pb-20">
       <MobileHeader 
-        title="NutriLabel Analyzer"
+        title="NutriScanner"
         subtitle="Smart food safety scanner"
         rightAction={
           <Button 

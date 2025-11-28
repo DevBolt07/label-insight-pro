@@ -168,6 +168,7 @@ export type Database = {
           last_name: string | null
           nutrition_goals: Json | null
           onboarding_completed: boolean | null
+          restrictions: string[] | null
           updated_at: string
           user_id: string
           weight_kg: number | null
@@ -192,6 +193,7 @@ export type Database = {
           last_name?: string | null
           nutrition_goals?: Json | null
           onboarding_completed?: boolean | null
+          restrictions?: string[] | null
           updated_at?: string
           user_id: string
           weight_kg?: number | null
@@ -216,6 +218,7 @@ export type Database = {
           last_name?: string | null
           nutrition_goals?: Json | null
           onboarding_completed?: boolean | null
+          restrictions?: string[] | null
           updated_at?: string
           user_id?: string
           weight_kg?: number | null
