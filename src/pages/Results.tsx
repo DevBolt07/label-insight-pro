@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye, MessageCircle, Sparkles, Package, MapPin, Factory, Info, Leaf, Calendar, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductData } from "@/services/openFoodFacts";
@@ -1016,6 +1017,27 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
           analysis={ingredientAnalysis}
           isLoading={isAnalyzingIngredient}
         />
+      </div>
+
+      {/* AI Chat Floating Button */}
+      <div className="fixed bottom-24 right-4 z-40">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button className="h-14 w-14 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg hover:shadow-xl hover:scale-105 transition-all p-0">
+              <MessageCircle className="h-7 w-7 text-white" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[80vh] rounded-t-[20px]">
+            <SheetHeader className="mb-4">
+              <SheetTitle>AI Health Advisor</SheetTitle>
+            </SheetHeader>
+            <HealthChatbot 
+              userProfile={user} 
+              productData={productData || ocrResult} 
+              className="h-full pb-10"
+            />
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );
