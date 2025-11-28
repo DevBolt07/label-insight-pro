@@ -32,7 +32,7 @@ serve(async (req) => {
 
     console.log(`Processing health chat question with Gemini: ${message}`);
 
-    const systemPrompt = `You are a knowledgeable and friendly nutrition advisor and health coach. You provide personalized, evidence-based advice about food, nutrition, and health.
+    const systemContext = `You are a knowledgeable and friendly nutrition advisor and health coach. You provide personalized, evidence-based advice about food, nutrition, and health.
 
 CURRENT CONTEXT:
 ${productData ? `Product being analyzed: ${JSON.stringify(productData, null, 2)}` : 'No specific product being analyzed'}
@@ -50,19 +50,23 @@ GUIDELINES:
 
     // Map history to Gemini format
     let contents = [];
+    
+    // Add system context as first user message
+    contents.push({
+      parts: [{ text: systemContext }]
+    });
+
     if (conversationHistory && conversationHistory.length > 0) {
       const recentHistory = conversationHistory.slice(-10);
       for (const msg of recentHistory) {
         if (msg.role === 'system') continue;
         contents.push({
-          role: msg.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: msg.content }]
         });
       }
     }
 
     contents.push({
-      role: 'user',
       parts: [{ text: message }]
     });
 
@@ -71,7 +75,6 @@ GUIDELINES:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: contents,
-        systemInstruction: { parts: [{ text: systemPrompt }] },
         generationConfig: { maxOutputTokens: 500, temperature: 0.7 }
       }),
     });
