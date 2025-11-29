@@ -9,8 +9,8 @@ if (!GEMINI_API_KEY) {
   console.error('Missing GEMINI_API_KEY environment variable.');
 }
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY!);
-// Use the stable 1.5 Flash model for reliability
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+// Use gemini-2.5-flash which is valid and efficient
+const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
 // The analysis prompt
 const prompt = `
