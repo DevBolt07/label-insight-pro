@@ -61,15 +61,15 @@ export const OcrCameraCapture: React.FC<OcrCameraCaptureProps> = ({ onCapture, o
     setCroppedAreaPixels(croppedPixels);
   }, []);
 
-  // Get cropped image as file
+    // Get cropped image as file
   const getCroppedImg = async (): Promise<File | null> => {
     if (!capturedImage || !croppedAreaPixels) return null;
     const image = new window.Image();
     image.src = capturedImage;
     await new Promise((resolve) => (image.onload = resolve));
     
-    // Calculate scaling to keep max dimension at 1024px
-    const maxDimension = 1024;
+    // Calculate scaling to keep max dimension at 800px
+    const maxDimension = 800;
     let targetWidth = croppedAreaPixels.width;
     let targetHeight = croppedAreaPixels.height;
     
@@ -84,6 +84,10 @@ export const OcrCameraCapture: React.FC<OcrCameraCaptureProps> = ({ onCapture, o
     canvas.height = targetHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
+
+    // Convert to grayscale to reduce token usage
+    ctx.filter = 'grayscale(100%)';
+
     ctx.drawImage(
       image,
       croppedAreaPixels.x,
@@ -102,7 +106,7 @@ export const OcrCameraCapture: React.FC<OcrCameraCaptureProps> = ({ onCapture, o
         } else {
           resolve(null);
         }
-      }, "image/jpeg", 0.85);
+      }, "image/jpeg", 0.6); // Reduced JPEG quality
     });
   };
 

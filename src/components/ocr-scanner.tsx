@@ -26,8 +26,8 @@ export function OCRScanner({
 
   const handleFileSelect = async (file: File) => {
     if (file && file.type.startsWith('image/')) {
-      // Resize image to max 1024px before processing
-      const resizedFile = await resizeImage(file, 1024);
+      // Resize image to max 600px before processing for safety
+      const resizedFile = await resizeImage(file, 600);
       setSelectedFile(resizedFile);
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -59,6 +59,7 @@ export function OCRScanner({
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
+          if (ctx) ctx.filter = 'grayscale(100%)'; 
           ctx?.drawImage(img, 0, 0, width, height);
 
           canvas.toBlob(
@@ -72,7 +73,7 @@ export function OCRScanner({
               }
             },
             'image/jpeg',
-            0.8
+            0.6
           );
         };
         img.src = e.target?.result as string;
