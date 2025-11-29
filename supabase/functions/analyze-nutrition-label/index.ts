@@ -9,8 +9,8 @@ if (!GEMINI_API_KEY) {
   console.error('Missing GEMINI_API_KEY environment variable.');
 }
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY!);
-// Use the latest Flash model which is fast and supports vision
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+// Use the stable 1.5 Flash model for reliability
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 // The analysis prompt
 const prompt = `
@@ -93,9 +93,15 @@ serve(async (req) => {
       } catch (error: any) {
         lastError = error;
         
-        // Check if it's a 429 rate limit error
-        if (error?.message?.includes('429') || error?.status === 429) {
-          console.log(`Rate limit hit on attempt ${attempt}. Retrying...`);
+        // Check if it's a retryable error (rate limit or server error)
+        const isRateLimit = error?.message?.includes('429') || error?.status === 429;
+        const isServerError = [500, 502, 503, 504].includes(error?.status) || 
+                              error?.message?.includes('500') || 
+                              error?.message?.includes('Internal Server Error');
+        
+        if (isRateLimit || isServerError) {
+          const errorType = isRateLimit ? 'Rate limit' : 'Server error';
+          console.log(`${errorType} hit on attempt ${attempt}. Retrying...`);
           
           // Extract retry delay from error if available, otherwise use exponential backoff
           const retryDelay = error?.errorDetails?.find((d: any) => d.retryDelay)?.retryDelay;
@@ -110,7 +116,7 @@ serve(async (req) => {
           }
         }
         
-        // For non-429 errors or last retry, throw immediately
+        // For non-retryable errors or last retry, throw immediately
         throw error;
       }
     }
