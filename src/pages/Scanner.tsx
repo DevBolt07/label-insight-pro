@@ -162,21 +162,19 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
 
       if (error) throw error;
       
-      // Normalize Data for Results Page
       const normalizedProduct = {
         name: ocrResult.product_name || "Scanned Product",
         brand: "Detected via OCR",
         image_url: URL.createObjectURL(file),
         ingredients: JSON.stringify(ocrResult.ingredients || []),
         grade: "", 
-        health_score: ocrResult.health_score || 5, // Default to 5 if missing
-        nutrition_facts: ocrResult.nutritional_info || {},
+        health_score: ocrResult.health_score,
+        nutrition_facts: ocrResult.nutritional_info,
         health_warnings: ocrResult.alerts || [],
         allergens: ocrResult.allergens || [],
         additives: [],
         categories: "",
         nova_group: 0,
-        // Pass extra AI analysis
         ai_analysis: ocrResult.health_analysis,
         suggestions: ocrResult.suggestions
       };
@@ -187,7 +185,9 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
         productData: normalizedProduct,
         scanned: true,
         scanMethod: 'ocr',
-        fromBackend: true
+        fromBackend: true,
+        // *** PASS RAW TEXT HERE ***
+        rawText: ocrResult.raw_text 
       });
 
     } catch (error) {
@@ -197,7 +197,6 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
         title: "Analysis Failed",
         description: "Could not analyze the image. Please try again.",
         variant: "destructive",
-        duration: 5000,
       });
     }
   };

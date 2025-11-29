@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai';
 
 // Configuration
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -21,14 +22,13 @@ serve(async (req) => {
       throw new Error('Failed to parse request body');
     }
 
-    // Ensure header for OCR.space
     if (!imageBase64.startsWith('data:')) {
       imageBase64 = `data:image/jpeg;base64,${imageBase64}`;
     }
 
     console.log("Step 1: Sending image to OCR.space...");
 
-    // --- 2. CALL OCR.SPACE (Vision Layer) ---
+    // --- 2. CALL OCR.SPACE ---
     const formData = new FormData();
     formData.append('base64Image', imageBase64);
     formData.append('apikey', OCR_SPACE_API_KEY);
@@ -54,11 +54,11 @@ serve(async (req) => {
       throw new Error("OCR failed to extract readable text.");
     }
 
-    // --- 3. TRY GEMINI VIA RAW FETCH (Matching your working Chatbot) ---
+    // --- 3. TRY GEMINI VIA RAW FETCH ---
     try {
       if (!GEMINI_API_KEY) throw new Error("No Gemini Key");
       
-      console.log("Step 2: Sending text to Gemini 2.5 Flash (via fetch)...");
+      console.log("Step 2: Sending text to Gemini 2.5 Flash...");
 
       const systemPrompt = `You are a nutrition expert. 
       I will provide text extracted from a food label. 
@@ -81,7 +81,6 @@ serve(async (req) => {
         "suggestions": ["Suggestions"]
       }`;
 
-      // EXACT URL AND STRUCTURE FROM YOUR WORKING CHATBOT
       const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -94,7 +93,7 @@ serve(async (req) => {
           generation_config: { 
             max_output_tokens: 1000, 
             temperature: 0.1,
-            response_mime_type: "application/json" // Force JSON mode
+            response_mime_type: "application/json"
           }
         }),
       });
@@ -109,9 +108,11 @@ serve(async (req) => {
       
       if (!rawText) throw new Error("Empty response from Gemini");
 
-      // Clean markdown if present
       const jsonString = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
       const finalJson = JSON.parse(jsonString);
+
+      // *** ADD RAW TEXT TO RESPONSE ***
+      finalJson.raw_text = extractedText;
 
       console.log("Gemini JSON parsing successful!");
       
@@ -120,9 +121,11 @@ serve(async (req) => {
       });
 
     } catch (aiError) {
-      // --- 4. FALLBACK: REGEX PARSER ---
       console.error("Gemini failed, falling back to Regex:", aiError);
       const fallbackResult = parseNutritionText(extractedText);
+      // *** ADD RAW TEXT TO FALLBACK ***
+      fallbackResult.raw_text = extractedText; 
+      
       return new Response(JSON.stringify(fallbackResult), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -140,7 +143,6 @@ serve(async (req) => {
   }
 });
 
-// --- Fallback Regex Logic ---
 function parseNutritionText(text: string) {
   const clean = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const find = (r: RegExp) => (clean.match(r) || [])[1]?.trim() || "0";
@@ -162,6 +164,7 @@ function parseNutritionText(text: string) {
     health_analysis: "Basic OCR data (AI unavailable).",
     health_score: 5,
     alerts: ["AI unavailable"],
-    suggestions: []
+    suggestions: [],
+    raw_text: text // Add it here too for type safety if needed
   };
 }
