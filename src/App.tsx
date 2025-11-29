@@ -147,7 +147,7 @@ const App = () => {
       case "profile":
         return <Profile onNavigate={handleNavigate} user={user} />;
       case "scan":
-        return <Scanner onNavigate={handleNavigate} onProductScan={handleProductScan} loading={analysisLoading} user={user} />;
+        return <Scanner onNavigate={handleNavigate} user={user} />;
       case "results":
         return <Results onNavigate={handleNavigate} data={pageData} user={user} />;
       case "history":
