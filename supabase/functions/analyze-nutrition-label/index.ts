@@ -70,20 +70,53 @@ serve(async (req) => {
       },
     };
     
-    // Assemble the request for Gemini
-    const result = await model.generateContent([prompt, imagePart]);
-    const response = result.response;
-    const text = response.text();
+    // Retry logic for rate limiting
+    const maxRetries = 3;
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Attempt ${attempt} to generate content...`);
+        const result = await model.generateContent([prompt, imagePart]);
+        const response = result.response;
+        const text = response.text();
 
-    // Clean the response text to get a valid JSON string
-    // The Gemini response sometimes includes \\\`\\\`\\\`json markdown, so we remove it.
-    const jsonString = text.replace(/\\\`\\\`\\\`json/g, '').replace(/\\\`\\\`\\\`/g, '').trim();
-    const data = JSON.parse(jsonString);
+        // Clean the response text to get a valid JSON string
+        // The Gemini response sometimes includes \\\`\\\`\\\`json markdown, so we remove it.
+        const jsonString = text.replace(/\\\`\\\`\\\`json/g, '').replace(/\\\`\\\`\\\`/g, '').trim();
+        const data = JSON.parse(jsonString);
 
-    // Return the successful analysis
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+        // Return the successful analysis
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if it's a 429 rate limit error
+        if (error?.message?.includes('429') || error?.status === 429) {
+          console.log(`Rate limit hit on attempt ${attempt}. Retrying...`);
+          
+          // Extract retry delay from error if available, otherwise use exponential backoff
+          const retryDelay = error?.errorDetails?.find((d: any) => d.retryDelay)?.retryDelay;
+          const delayMs = retryDelay 
+            ? parseInt(retryDelay.replace('s', '')) * 1000 
+            : Math.min(2000 * Math.pow(2, attempt - 1), 10000); // 2s, 4s, 8s max
+          
+          if (attempt < maxRetries) {
+            console.log(`Waiting ${delayMs}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            continue;
+          }
+        }
+        
+        // For non-429 errors or last retry, throw immediately
+        throw error;
+      }
+    }
+    
+    // If we exhausted all retries
+    throw lastError;
   } catch (error) {
     // Log the actual error to the Supabase function logs
     console.error('Error processing request:', error);

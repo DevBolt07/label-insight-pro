@@ -67,9 +67,21 @@ export const OcrCameraCapture: React.FC<OcrCameraCaptureProps> = ({ onCapture, o
     const image = new window.Image();
     image.src = capturedImage;
     await new Promise((resolve) => (image.onload = resolve));
+    
+    // Calculate scaling to keep max dimension at 1024px
+    const maxDimension = 1024;
+    let targetWidth = croppedAreaPixels.width;
+    let targetHeight = croppedAreaPixels.height;
+    
+    if (targetWidth > maxDimension || targetHeight > maxDimension) {
+      const scale = Math.min(maxDimension / targetWidth, maxDimension / targetHeight);
+      targetWidth = Math.floor(targetWidth * scale);
+      targetHeight = Math.floor(targetHeight * scale);
+    }
+    
     const canvas = document.createElement("canvas");
-    canvas.width = croppedAreaPixels.width;
-    canvas.height = croppedAreaPixels.height;
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
     ctx.drawImage(
@@ -80,8 +92,8 @@ export const OcrCameraCapture: React.FC<OcrCameraCaptureProps> = ({ onCapture, o
       croppedAreaPixels.height,
       0,
       0,
-      croppedAreaPixels.width,
-      croppedAreaPixels.height
+      targetWidth,
+      targetHeight
     );
     return new Promise((resolve) => {
       canvas.toBlob((blob) => {
@@ -90,7 +102,7 @@ export const OcrCameraCapture: React.FC<OcrCameraCaptureProps> = ({ onCapture, o
         } else {
           resolve(null);
         }
-      }, "image/jpeg", 0.95);
+      }, "image/jpeg", 0.85);
     });
   };
 
