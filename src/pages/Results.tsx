@@ -24,12 +24,13 @@ interface ResultsProps {
   user: User;
   data?: {
     productData?: ProductData;
-    ocrResult?: OCRResult;
+    ocrResult?: any; // Changed to any to support gemini_data structure
+    aiAnalysis?: any; // Added for barcode flow AI analysis
     scanned?: boolean;
     amazonLink?: string;
     featured?: boolean;
     scanMethod?: 'barcode' | 'ocr';
-    rawText?: string; // Added rawText support
+    rawText?: string;
   };
 }
 
@@ -41,10 +42,36 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
 
   const productData = data?.productData;
   const ocrResult = data?.ocrResult;
+  const aiAnalysis = data?.aiAnalysis; // AI analysis from barcode flow
   const isOCRResult = data?.scanMethod === 'ocr' && ocrResult;
-  const rawText = data?.rawText; // Extract raw text
+  const rawText = data?.rawText;
 
-  // Generate alerts from product data
+  // Generate alerts from AI analysis (for barcode scans)
+  const generateAlertsFromAI = (analysis: any): IngredientAlert[] => {
+    const alerts: IngredientAlert[] = [];
+    
+    if (analysis?.personalized_alerts) {
+      analysis.personalized_alerts.forEach((alert: string, index: number) => {
+        let severity: 'low' | 'medium' | 'high' = 'medium';
+        
+        if (alert.toLowerCase().includes('high') || alert.toLowerCase().includes('avoid')) severity = 'high';
+        if (alert.toLowerCase().includes('caution') || alert.toLowerCase().includes('concern')) severity = 'medium';
+        if (alert.toLowerCase().includes('note') || alert.toLowerCase().includes('consider')) severity = 'low';
+        
+        alerts.push({
+          id: `ai-alert-${index}`,
+          ingredient: alert,
+          reason: alert,
+          severity,
+          userProfile: []
+        });
+      });
+    }
+    
+    return alerts;
+  };
+
+  // Generate alerts from product data or AI analysis
   const generateAlertsFromProduct = (product: ProductData): IngredientAlert[] => {
     const alerts: IngredientAlert[] = [];
     
@@ -70,21 +97,22 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
     return alerts;
   };
 
-  // Generate alerts from OCR results
-  const generateAlertsFromOCR = (ocrResult: OCRResult): IngredientAlert[] => {
+  // Generate alerts from OCR results (gemini_data structure)
+  const generateAlertsFromOCR = (ocrResult: any): IngredientAlert[] => {
     const alerts: IngredientAlert[] = [];
     
-    if (ocrResult.healthAnalysis?.warnings) {
-      ocrResult.healthAnalysis.warnings.forEach((warning, index) => {
+    // Check for personalized_alerts in the new structure
+    if (ocrResult?.personalized_alerts) {
+      ocrResult.personalized_alerts.forEach((alert: string, index: number) => {
         let severity: 'low' | 'medium' | 'high' = 'medium';
         
-        if (warning.toLowerCase().includes('high')) severity = 'high';
-        if (warning.toLowerCase().includes('excess')) severity = 'high';
+        if (alert.toLowerCase().includes('high') || alert.toLowerCase().includes('avoid')) severity = 'high';
+        if (alert.toLowerCase().includes('excess') || alert.toLowerCase().includes('concern')) severity = 'medium';
         
         alerts.push({
-          id: `ocr-warning-${index}`,
-          ingredient: warning,
-          reason: warning,
+          id: `ocr-alert-${index}`,
+          ingredient: alert,
+          reason: alert,
           severity,
           userProfile: []
         });
@@ -97,6 +125,8 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
   const [alerts, setAlerts] = useState<IngredientAlert[]>(() => {
     if (isOCRResult && ocrResult) {
       return generateAlertsFromOCR(ocrResult);
+    } else if (aiAnalysis) {
+      return generateAlertsFromAI(aiAnalysis);
     } else if (productData) {
       return generateAlertsFromProduct(productData);
     }
@@ -128,12 +158,12 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
   };
 
   const healthScore = (() => {
-    if (isOCRResult && ocrResult) {
-      return ocrResult.healthAnalysis.healthScore;
+    if (isOCRResult && ocrResult?.health_score) {
+      return ocrResult.health_score * 10; // Convert 1-10 to 1-100 scale
     } else if (productData) {
       return calculateHealthScore(productData);
     }
-    return 34; // Default score
+    return 50; // Default score
   })();
   
   // Get grade from score
@@ -146,9 +176,6 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
   };
 
   const healthGrade = (() => {
-    if (isOCRResult && ocrResult) {
-      return ocrResult.healthAnalysis.grade;
-    }
     return getGradeFromScore(healthScore);
   })();
 
@@ -190,9 +217,14 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
   };
 
   // Parse ingredients into array
-  const ingredientsList = productData?.ingredients ? 
-    productData.ingredients.split(',').map(i => i.trim()).filter(i => i.length > 0) : 
-    [];
+  const ingredientsList = (() => {
+    if (isOCRResult && ocrResult?.ingredients) {
+      return Array.isArray(ocrResult.ingredients) ? ocrResult.ingredients : [];
+    } else if (productData?.ingredients) {
+      return productData.ingredients.split(',').map(i => i.trim()).filter(i => i.length > 0);
+    }
+    return [];
+  })();
 
   if (loading) {
     return (
@@ -253,7 +285,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                   </h2>
                 </div>
                 <p className="text-body-medium text-muted-foreground mb-3">
-                  Extracted from nutrition label • Confidence: {Math.round(ocrResult.confidence)}%
+                  Extracted from nutrition label • AI-powered analysis
                 </p>
               </>
             ) : (
@@ -327,7 +359,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
           />
         )}
           
-        {(productData?.nutritionFacts || (isOCRResult && ocrResult?.nutritionData)) && (
+        {(productData?.nutritionFacts || (isOCRResult && ocrResult?.nutritional_info)) && (
             <Card className="card-material p-5 animate-scale-in animate-stagger-2">
               <div className="flex items-center gap-2 mb-4">
                 <Package className="h-5 w-5 text-primary" />
@@ -336,57 +368,55 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                 </h3>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
-                {isOCRResult && ocrResult?.nutritionData ? (
-                  // OCR nutrition data
+                {isOCRResult && ocrResult?.nutritional_info ? (
+                  // OCR nutrition data (gemini_data structure)
                   <>
-                    {ocrResult.nutritionData.calories && (
+                    {ocrResult.nutritional_info.calories && (
                       <div className="flex justify-between p-2 bg-muted/20 rounded">
                         <span className="text-muted-foreground">Calories</span>
-                        <span className="font-medium">{ocrResult.nutritionData.calories}</span>
+                        <span className="font-medium">{ocrResult.nutritional_info.calories}</span>
                       </div>
                     )}
-                    {ocrResult.nutritionData.fat !== undefined && (
+                    {ocrResult.nutritional_info.total_fat && (
                       <div className="flex justify-between p-2 bg-muted/20 rounded">
-                        <span className="text-muted-foreground">Fat</span>
-                        <span className="font-medium">{ocrResult.nutritionData.fat}g</span>
+                        <span className="text-muted-foreground">Total Fat</span>
+                        <span className="font-medium">{ocrResult.nutritional_info.total_fat}</span>
                       </div>
                     )}
-                    {ocrResult.nutritionData.carbohydrates !== undefined && (
+                    {ocrResult.nutritional_info.saturated_fat && (
+                      <div className="flex justify-between p-2 bg-muted/20 rounded">
+                        <span className="text-muted-foreground">Saturated Fat</span>
+                        <span className="font-medium">{ocrResult.nutritional_info.saturated_fat}</span>
+                      </div>
+                    )}
+                    {ocrResult.nutritional_info.total_carbohydrate && (
                       <div className="flex justify-between p-2 bg-muted/20 rounded">
                         <span className="text-muted-foreground">Carbs</span>
-                        <span className="font-medium">{ocrResult.nutritionData.carbohydrates}g</span>
+                        <span className="font-medium">{ocrResult.nutritional_info.total_carbohydrate}</span>
                       </div>
                     )}
-                    {ocrResult.nutritionData.sugar !== undefined && (
+                    {ocrResult.nutritional_info.sugars && (
                       <div className="flex justify-between p-2 bg-muted/20 rounded">
-                        <span className="text-muted-foreground">Sugar</span>
-                        <span className="font-medium">{ocrResult.nutritionData.sugar}g</span>
+                        <span className="text-muted-foreground">Sugars</span>
+                        <span className="font-medium">{ocrResult.nutritional_info.sugars}</span>
                       </div>
                     )}
-                    {ocrResult.nutritionData.protein !== undefined && (
+                    {ocrResult.nutritional_info.protein && (
                       <div className="flex justify-between p-2 bg-muted/20 rounded">
                         <span className="text-muted-foreground">Protein</span>
-                        <span className="font-medium">{ocrResult.nutritionData.protein}g</span>
+                        <span className="font-medium">{ocrResult.nutritional_info.protein}</span>
                       </div>
                     )}
-                    {ocrResult.nutritionData.sodium !== undefined && (
+                    {ocrResult.nutritional_info.sodium && (
                       <div className="flex justify-between p-2 bg-muted/20 rounded">
                         <span className="text-muted-foreground">Sodium</span>
-                        <span className="font-medium">{ocrResult.nutritionData.sodium}mg</span>
+                        <span className="font-medium">{ocrResult.nutritional_info.sodium}</span>
                       </div>
                     )}
-                    {ocrResult.nutritionData.fiber !== undefined && (
+                    {ocrResult.nutritional_info.dietary_fiber && (
                       <div className="flex justify-between p-2 bg-muted/20 rounded">
                         <span className="text-muted-foreground">Fiber</span>
-                        <span className="font-medium">{ocrResult.nutritionData.fiber}g</span>
-                      </div>
-                    )}
-                    {ocrResult.nutritionData.servingSize && (
-                      <div className="col-span-2 pt-2 border-t border-border">
-                        <div className="flex justify-between p-2 bg-primary/5 rounded">
-                          <span className="text-muted-foreground">Serving Size</span>
-                          <span className="font-medium">{ocrResult.nutritionData.servingSize}</span>
-                        </div>
+                        <span className="font-medium">{ocrResult.nutritional_info.dietary_fiber}</span>
                       </div>
                     )}
                   </>
@@ -472,30 +502,34 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="ingredients" className="rounded-xl">
+              Ingredients
+              {ingredientsList.length > 0 && (
+                <Badge variant="default" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
+                  {ingredientsList.length}
+                </Badge>
+              )}
+            </TabsTrigger>
             {isOCRResult ? (
               <>
-                <TabsTrigger value="ingredients" className="rounded-xl">
-                  Ingredients
-                  {ocrResult?.ingredients && ocrResult.ingredients.length > 0 && (
-                    <Badge variant="default" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
-                      {ocrResult.ingredients.length}
-                    </Badge>
-                  )}
+                <TabsTrigger value="debug" className="rounded-xl">
+                  <FileText className="h-3 w-3 mr-1" />
+                  Debug
                 </TabsTrigger>
-                <TabsTrigger value="categorized" className="rounded-xl">
-                  <Eye className="h-3 w-3 mr-1" />
-                  Details
-                </TabsTrigger>
-                {/* ADDED RAW TAB */}
-                <TabsTrigger value="raw" className="rounded-xl">
-                   Raw
+                <TabsTrigger value="info" className="rounded-xl">
+                  <Info className="h-3 w-3 mr-1" />
+                  Info
                 </TabsTrigger>
               </>
             ) : (
               <>
-                <TabsTrigger value="ingredients" className="rounded-xl">Ingredients</TabsTrigger>
                 <TabsTrigger value="claims" className="rounded-xl">Claims</TabsTrigger>
-                <TabsTrigger value="alternatives" className="rounded-xl">Better</TabsTrigger>
+                {aiAnalysis && (
+                  <TabsTrigger value="ai-insights" className="rounded-xl">
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    AI Insights
+                  </TabsTrigger>
+                )}
               </>
             )}
           </TabsList>
@@ -522,111 +556,174 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
             )}
           </TabsContent>
 
-          {isOCRResult && ocrResult?.categorizedText && (
-            <TabsContent value="categorized" className="space-y-3 mt-4">
-              {/* Brand Name */}
-              {ocrResult.categorizedText.brand_name && (
-                <Card className="card-material">
-                  <div className="p-5 space-y-2">
-                    <h3 className="text-title-medium text-foreground font-semibold">Brand Name</h3>
-                    <p className="text-lg font-bold text-primary">{ocrResult.categorizedText.brand_name}</p>
+          {/* Debug Tab - Enhanced with Gemini Data */}
+          {isOCRResult && (
+            <TabsContent value="debug" className="space-y-3 mt-4">
+              {/* Raw OCR Text Section */}
+              <Card className="card-material">
+                <div className="p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <h3 className="text-title-medium text-foreground font-semibold">Raw OCR Text</h3>
                   </div>
-                </Card>
-              )}
-              
-              {/* Slogans */}
-              {ocrResult.categorizedText.slogans.length > 0 && (
-                <Card className="card-material">
-                  <div className="p-5 space-y-3">
-                    <h3 className="text-title-medium text-foreground font-semibold">Marketing Slogans</h3>
-                    <div className="space-y-2">
-                      {ocrResult.categorizedText.slogans.map((slogan, index) => (
-                        <div key={index} className="flex items-start gap-2 p-3 bg-accent/10 rounded-lg">
-                          <span className="text-accent text-lg">💬</span>
-                          <p className="text-sm text-muted-foreground italic">{slogan}</p>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="bg-muted/30 rounded-lg p-4 max-h-48 overflow-y-auto">
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
+                      {rawText || "No raw text available"}
+                    </p>
                   </div>
-                </Card>
-              )}
-
-              {/* Marketing Text */}
-              {ocrResult.categorizedText.marketing_text.length > 0 && (
-                <Card className="card-material">
-                  <div className="p-5 space-y-3">
-                    <h3 className="text-title-medium text-foreground font-semibold">Marketing Claims</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {ocrResult.categorizedText.marketing_text.map((text, index) => (
-                        <Badge key={index} variant="outline" className="text-xs bg-warning/10 border-warning/20">
-                          {text}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </TabsContent>
-          )}
-          
-          {/* NEW RAW TEXT TAB CONTENT */}
-          <TabsContent value="raw" className="space-y-3 mt-4">
-            <Card className="card-material">
-              <div className="p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <h3 className="text-title-medium text-foreground font-semibold">Raw Extracted Text</h3>
-                </div>
-                <div className="bg-muted/30 rounded-lg p-4 max-h-60 overflow-y-auto">
-                  <p className="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
-                    {rawText || ocrResult?.rawText || "No raw text available."}
+                  <p className="text-xs text-muted-foreground">
+                    📄 Text extracted directly from image via OCR.space
                   </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Text extracted directly from image via OCR.space
-                </p>
-              </div>
-            </Card>
-          </TabsContent>
+              </Card>
+
+              {/* Gemini Processed Data Section */}
+              <Card className="card-material">
+                <div className="p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    <h3 className="text-title-medium text-foreground font-semibold">🤖 Gemini Parsed Data</h3>
+                  </div>
+
+                  {/* Ingredients Sub-tab */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-foreground">Detected Ingredients</h4>
+                    <div className="bg-muted/20 rounded-lg p-3 max-h-32 overflow-y-auto">
+                      {ocrResult?.ingredients && ocrResult.ingredients.length > 0 ? (
+                        <ul className="space-y-1 text-xs text-muted-foreground">
+                          {ocrResult.ingredients.map((ing: string, i: number) => (
+                            <li key={i}>• {ing}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No ingredients detected</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Nutrition Facts Sub-tab */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-foreground">Nutrition Facts</h4>
+                    <div className="bg-muted/20 rounded-lg p-3">
+                      {ocrResult?.nutritional_info ? (
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {Object.entries(ocrResult.nutritional_info).map(([key, value]) => (
+                            <div key={key} className="flex justify-between">
+                              <span className="text-muted-foreground capitalize">{key.replace('_', ' ')}:</span>
+                              <span className="font-medium">{String(value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No nutrition data</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Full JSON */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-foreground">Full Gemini Response (JSON)</h4>
+                    <div className="bg-muted/30 rounded-lg p-3 max-h-48 overflow-y-auto">
+                      <pre className="text-[10px] text-muted-foreground font-mono whitespace-pre-wrap">
+                        {JSON.stringify(ocrResult, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
+          )}
+
+          {/* AI Insights Tab for Barcode Scans */}
+          {!isOCRResult && aiAnalysis && (
+            <TabsContent value="ai-insights" className="space-y-3 mt-4">
+              <Card className="card-material">
+                <div className="p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    <h3 className="text-title-medium text-foreground font-semibold">Personalized AI Analysis</h3>
+                  </div>
+
+                  {aiAnalysis.detailed_analysis && (
+                    <div className="p-4 bg-primary/5 rounded-lg">
+                      <p className="text-sm text-foreground leading-relaxed">
+                        {aiAnalysis.detailed_analysis}
+                      </p>
+                    </div>
+                  )}
+
+                  {aiAnalysis.overall_recommendation && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-muted-foreground">Recommendation:</span>
+                      <Badge 
+                        variant={
+                          aiAnalysis.overall_recommendation === 'excellent' || aiAnalysis.overall_recommendation === 'good' 
+                            ? 'default' 
+                            : 'destructive'
+                        }
+                        className="capitalize"
+                      >
+                        {aiAnalysis.overall_recommendation}
+                      </Badge>
+                    </div>
+                  )}
+
+                  {aiAnalysis.personalized_suggestions && aiAnalysis.personalized_suggestions.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-foreground">💡 Suggestions for You</h4>
+                      <div className="space-y-2">
+                        {aiAnalysis.personalized_suggestions.map((suggestion: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2 p-3 bg-muted/20 rounded-lg">
+                            <CheckCircle className="h-4 w-4 text-healthy mt-0.5 shrink-0" />
+                            <p className="text-xs text-foreground">{suggestion}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </TabsContent>
+          )}
+
+          {/* Info Tab for OCR */}
+          {isOCRResult && (
+            <TabsContent value="info" className="space-y-3 mt-4">
+              <Card className="card-material">
+                <div className="p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-5 w-5 text-primary" />
+                    <h3 className="text-title-medium text-foreground font-semibold">Analysis Info</h3>
+                  </div>
+                  {ocrResult?.health_analysis && (
+                    <div className="p-4 bg-muted/20 rounded-lg">
+                      <p className="text-sm text-foreground leading-relaxed">
+                        {ocrResult.health_analysis}
+                      </p>
+                    </div>
+                  )}
+                  {ocrResult?.suggestions && ocrResult.suggestions.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-foreground">Suggestions</h4>
+                      <div className="space-y-2">
+                        {ocrResult.suggestions.map((suggestion: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <CheckCircle className="h-4 w-4 text-healthy mt-0.5 shrink-0" />
+                            <p className="text-xs text-muted-foreground">{suggestion}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </TabsContent>
+          )}
 
           <TabsContent value="ingredients" className="space-y-3 mt-4">
             <Card className="card-material">
               <div className="p-6 space-y-4">
-                {isOCRResult && ocrResult?.ingredients && ocrResult.ingredients.length > 0 ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-title-large text-foreground font-semibold">Detected Ingredients</h3>
-                      <Badge variant="secondary" className="text-xs">
-                        {ocrResult.ingredients.length} found
-                      </Badge>
-                    </div>
-                    <div className="space-y-2">
-                      {ocrResult.ingredients.map((ingredient, index) => (
-                        <div 
-                          key={index}
-                          className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                          onClick={() => handleIngredientClick(ingredient)}
-                        >
-                          <span className="text-xl font-bold text-primary/50">{index + 1}</span>
-                          <span className="text-sm font-medium text-foreground">{ingredient}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {ocrResult.healthAnalysis.recommendations.length > 0 && (
-                      <div className="pt-4 border-t border-border">
-                        <h4 className="text-sm font-medium text-foreground mb-3">Health Tips</h4>
-                        <div className="space-y-2">
-                          {ocrResult.healthAnalysis.recommendations.map((rec, index) => (
-                            <div key={index} className="flex items-start gap-2">
-                              <CheckCircle className="h-4 w-4 text-healthy mt-0.5 shrink-0" />
-                              <p className="text-xs text-muted-foreground">{rec}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : ingredientsList.length > 0 ? (
+                {ingredientsList.length > 0 ? (
                   <>
                     <h3 className="text-title-large text-foreground">Ingredients List</h3>
                     <div className="flex flex-wrap gap-2">

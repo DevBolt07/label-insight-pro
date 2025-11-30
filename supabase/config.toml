@@ -6,5 +6,8 @@ verify_jwt = false
 [functions.analyze-ingredient]
 verify_jwt = false
 
+[functions.analyze-product-profile]
+verify_jwt = false
+
 [functions.health-chat]
-verify_jwt = false 
+verify_jwt = false
