@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Card } from "@/components/ui/card";
 import { Scan, Image, Zap, Loader2, FileText } from "lucide-react";
@@ -10,10 +10,12 @@ import { BarcodeScanResult } from "@/hooks/useBarcodeScanner";
 import { useToast } from "@/hooks/use-toast";
 import { scanHistoryService } from "@/services/scanHistoryService";
 import { productService } from "@/services/productService";
+import { OCRResult } from "@/services/ocrService";
 import type { User } from "@supabase/supabase-js";
+import { analyzeProductWithBackend, UserProfile } from "@/services/backendApi";
+import { useBackendHealth } from "@/hooks/useBackendHealth";
 import { useTranslation } from "@/i18n";
 import { supabase } from "@/integrations/supabase/client";
-import { profileService } from "@/services/profileService";
 
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
@@ -24,22 +26,8 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [showOCRScanner, setShowOCRScanner] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
   const { toast } = useToast();
-
-  // Fetch user profile on mount
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const profile = await profileService.getProfile(user.id);
-        setUserProfile(profile);
-        console.log('User profile loaded:', profile);
-      } catch (error) {
-        console.error('Failed to load user profile:', error);
-      }
-    };
-    loadProfile();
-  }, [user.id]);
+  useBackendHealth();
 
   const handleBarcodeScan = () => {
     setShowBarcodeScanner(true);
@@ -50,79 +38,103 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     setIsScanning(true);
 
     try {
-      // Fetch from OpenFoodFacts
+      try {
+        const userProfile: UserProfile = {
+          age: 30, // TODO: Fetch real profile
+          hasDiabetes: false,
+          hasHighBP: false,
+          isChild: false,
+          hasHeartDisease: false,
+          isPregnant: false,
+          allergies: [],
+        };
+
+        const backendResult = await analyzeProductWithBackend(result.code, userProfile);
+        
+        const savedProduct = await productService.createOrUpdateProduct({
+          barcode: result.code,
+          name: backendResult.product_name,
+          brand: "",
+          image_url: "",
+          categories: "",
+          ingredients: JSON.stringify(backendResult.ingredients),
+          grade: "",
+          health_score: backendResult.health_risk_score,
+          nutriscore: "",
+          nova_group: 0,
+          allergens: [],
+          additives: [],
+          health_warnings: backendResult.alerts,
+          nutrition_facts: backendResult.nutritional_info || {},
+        });
+
+        await scanHistoryService.addScanToHistory({
+          user_id: user.id,
+          product_id: savedProduct.id,
+          scan_method: 'barcode',
+        });
+
+        setIsScanning(false);
+        
+        onNavigate("results", {
+          productData: {
+            ...savedProduct,
+            healthWarnings: backendResult.alerts,
+            suggestions: backendResult.suggestions,
+          },
+          scanned: true,
+          fromBackend: true,
+        });
+        
+        return;
+        
+      } catch (backendError) {
+        console.log('Backend analysis failed, falling back to OpenFoodFacts:', backendError);
+      }
+
       const productData = await openFoodFactsService.getProductByBarcode(result.code);
       
-      if (!productData) {
+      if (productData) {
+        const savedProduct = await productService.createOrUpdateProduct({
+          barcode: result.code,
+          name: productData.name,
+          brand: productData.brand,
+          image_url: productData.image,
+          categories: productData.categories,
+          ingredients: productData.ingredients,
+          grade: productData.grade,
+          health_score: productData.healthScore,
+          nutriscore: productData.nutriscore,
+          nova_group: productData.nova_group,
+          allergens: productData.allergens,
+          additives: productData.additives,
+          health_warnings: productData.healthWarnings,
+          nutrition_facts: productData.nutritionFacts,
+        });
+
+        await scanHistoryService.addScanToHistory({
+          user_id: user.id,
+          product_id: savedProduct.id,
+          scan_method: 'barcode',
+        });
+
+        setIsScanning(false);
+        
+        onNavigate("results", {
+          productData,
+          scanned: true,
+          fromBackend: false,
+        });
+      } else {
         setIsScanning(false);
         toast({
           title: "Product Not Found",
           description: `No product found for barcode: ${result.code}`,
           variant: "destructive",
         });
-        return;
       }
-
-      // Call new edge function for personalized analysis
-      const { data: aiAnalysis, error } = await supabase.functions.invoke('analyze-product-profile', {
-        body: { 
-          productData: {
-            name: productData.name,
-            brand: productData.brand,
-            categories: productData.categories,
-            ingredients: productData.ingredients,
-            allergens: productData.allergens,
-            nutriscore: productData.nutriscore,
-            nova_group: productData.nova_group,
-            additives: productData.additives,
-            nutritionFacts: productData.nutritionFacts
-          },
-          userProfile 
-        }
-      });
-
-      if (error) {
-        console.error('AI analysis failed:', error);
-      }
-
-      // Save product to database
-      const savedProduct = await productService.createOrUpdateProduct({
-        barcode: result.code,
-        name: productData.name,
-        brand: productData.brand,
-        image_url: productData.image,
-        categories: productData.categories,
-        ingredients: productData.ingredients,
-        grade: productData.grade,
-        health_score: productData.healthScore,
-        nutriscore: productData.nutriscore,
-        nova_group: productData.nova_group,
-        allergens: productData.allergens,
-        additives: productData.additives,
-        health_warnings: productData.healthWarnings,
-        nutrition_facts: productData.nutritionFacts,
-      });
-
-      // Save scan history
-      await scanHistoryService.addScanToHistory({
-        user_id: user.id,
-        product_id: savedProduct.id,
-        scan_method: 'barcode',
-      });
-
-      setIsScanning(false);
-      
-      // Navigate with both product data and AI analysis
-      onNavigate("results", {
-        productData,
-        aiAnalysis: aiAnalysis?.gemini_data,
-        scanned: true,
-        scanMethod: 'barcode'
-      });
-
     } catch (error) {
       setIsScanning(false);
-      console.error('Scan error:', error);
       toast({
         title: "Scan Error",
         description: "Failed to fetch product information. Please try again.",
@@ -144,37 +156,38 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     setIsScanning(true);
 
     try {
-      // Convert file to base64
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          resolve(base64.split(',')[1]); // Remove data:image/jpeg;base64, prefix
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const imageBase64 = await base64Promise;
-
-      // Call edge function with image and user profile
       const { data: ocrResult, error } = await supabase.functions.invoke('analyze-nutrition-label', {
-        body: { 
-          image: imageBase64,
-          userProfile 
-        }
+          body: file,
       });
 
       if (error) throw error;
+      
+      const normalizedProduct = {
+        name: ocrResult.product_name || "Scanned Product",
+        brand: "Detected via OCR",
+        image_url: URL.createObjectURL(file),
+        ingredients: JSON.stringify(ocrResult.ingredients || []),
+        grade: "", 
+        health_score: ocrResult.health_score,
+        nutrition_facts: ocrResult.nutritional_info,
+        health_warnings: ocrResult.alerts || [],
+        allergens: ocrResult.allergens || [],
+        additives: [],
+        categories: "",
+        nova_group: 0,
+        ai_analysis: ocrResult.health_analysis,
+        suggestions: ocrResult.suggestions
+      };
 
       setIsScanning(false);
       
-      // Navigate with OCR results including raw_text and gemini_data
       onNavigate("results", {
-        ocrResult: ocrResult.gemini_data,
-        rawText: ocrResult.raw_text,
+        productData: normalizedProduct,
         scanned: true,
-        scanMethod: 'ocr'
+        scanMethod: 'ocr',
+        fromBackend: true,
+        // *** PASS RAW TEXT HERE ***
+        rawText: ocrResult.raw_text 
       });
 
     } catch (error) {
@@ -235,7 +248,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
               <div className="space-y-2">
                 <h3 className="text-headline-medium text-foreground">Analyzing Product</h3>
                 <p className="text-body-large text-muted-foreground">
-                  Our AI is processing the nutrition label and checking for personalized health alerts...
+                  Our AI is processing the nutrition label and checking for health alerts...
                 </p>
               </div>
               
@@ -246,11 +259,11 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <Zap className="h-4 w-4 text-primary" />
-                  <span>Analyzing nutrition facts</span>
+                  <span>Checking health claims</span>
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <Zap className="h-4 w-4 text-primary" />
-                  <span>Generating personalized recommendations</span>
+                  <span>Calculating health score</span>
                 </div>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai';
 
 // Configuration
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -13,12 +14,9 @@ serve(async (req) => {
   try {
     // --- 1. PARSE INPUT ---
     let imageBase64: string;
-    let userProfile: any = null;
-    
     try {
       const body = await req.json();
       imageBase64 = body.image;
-      userProfile = body.userProfile; // Accept user profile
       if (!imageBase64) throw new Error('No image data found');
     } catch (e) {
       throw new Error('Failed to parse request body');
@@ -56,32 +54,15 @@ serve(async (req) => {
       throw new Error("OCR failed to extract readable text.");
     }
 
-    // --- 3. CALL GEMINI WITH PERSONALIZATION ---
+    // --- 3. TRY GEMINI VIA RAW FETCH ---
     try {
       if (!GEMINI_API_KEY) throw new Error("No Gemini Key");
       
-      console.log("Step 2: Sending text to Gemini 2.5 Flash with user profile...");
+      console.log("Step 2: Sending text to Gemini 2.5 Flash...");
 
-      // Build personalized prompt
-      let userContext = "";
-      if (userProfile) {
-        const conditions = userProfile.health_conditions || [];
-        const allergies = userProfile.allergies || [];
-        const dietary = userProfile.dietary_preferences || [];
-        
-        if (conditions.length > 0 || allergies.length > 0 || dietary.length > 0) {
-          userContext = `\n\nUSER PROFILE CONTEXT:\n`;
-          if (conditions.length > 0) userContext += `Health Conditions: ${conditions.join(', ')}\n`;
-          if (allergies.length > 0) userContext += `Allergies: ${allergies.join(', ')}\n`;
-          if (dietary.length > 0) userContext += `Dietary Preferences: ${dietary.join(', ')}\n`;
-          userContext += `\nIMPORTANT: Generate personalized alerts and analysis based on these conditions.`;
-        }
-      }
-
-      const systemPrompt = `You are a nutrition expert analyzing food labels. 
+      const systemPrompt = `You are a nutrition expert. 
       I will provide text extracted from a food label. 
       Parse it into this EXACT JSON structure. If fields are missing, infer them or use "0".
-      ${userContext}
       
       Required JSON:
       {
@@ -94,98 +75,58 @@ serve(async (req) => {
           "total_carbohydrate": "Value", "dietary_fiber": "Value", 
           "sugars": "Value", "protein": "Value"
         },
-        "health_analysis": "Short summary considering user profile",
+        "health_analysis": "Short summary",
         "health_score": "1-10",
-        "personalized_alerts": ["Warnings specific to user's health conditions"],
-        "suggestions": ["Personalized suggestions based on user profile"]
+        "alerts": ["Warnings"],
+        "suggestions": ["Suggestions"]
       }`;
 
-      const makeRequestWithRetry = async (attempt = 1): Promise<any> => {
-        try {
-          const geminiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  role: 'user',
-                  parts: [{ text: `EXTRACTED TEXT:\n${extractedText}` }]
-                }],
-                system_instruction: { parts: [{ text: systemPrompt }] },
-                generation_config: { 
-                  max_output_tokens: 1500, 
-                  temperature: 0.1,
-                  response_mime_type: "application/json"
-                }
-              }),
-            }
-          );
-
-          if (!geminiResponse.ok) {
-            const status = geminiResponse.status;
-            
-            // Retry on rate limit or server errors
-            if ((status === 429 || status >= 500) && attempt < 3) {
-              const delay = Math.pow(2, attempt) * 1000;
-              console.log(`Gemini error ${status}, retrying in ${delay}ms (attempt ${attempt}/3)`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-              return makeRequestWithRetry(attempt + 1);
-            }
-            
-            const errData = await geminiResponse.json();
-            throw new Error(`Gemini API Error (${status}): ${JSON.stringify(errData)}`);
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [{ text: `EXTRACTED TEXT:\n${extractedText}` }]
+          }],
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          generation_config: { 
+            max_output_tokens: 1000, 
+            temperature: 0.1,
+            response_mime_type: "application/json"
           }
+        }),
+      });
 
-          return await geminiResponse.json();
-        } catch (error) {
-          if (attempt < 3 && (error instanceof Error && error.message.includes('fetch'))) {
-            const delay = Math.pow(2, attempt) * 1000;
-            console.log(`Network error, retrying in ${delay}ms (attempt ${attempt}/3)`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            return makeRequestWithRetry(attempt + 1);
-          }
-          throw error;
-        }
-      };
+      if (!geminiResponse.ok) {
+        const errData = await geminiResponse.json();
+        throw new Error(`Gemini API Error: ${JSON.stringify(errData)}`);
+      }
 
-      const geminiData = await makeRequestWithRetry();
+      const geminiData = await geminiResponse.json();
       const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
       
       if (!rawText) throw new Error("Empty response from Gemini");
 
       const jsonString = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsedData = JSON.parse(jsonString);
+      const finalJson = JSON.parse(jsonString);
 
-      // Structure response with raw_text and gemini_data
-      const response = {
-        raw_text: extractedText,
-        gemini_data: {
-          product_name: parsedData.product_name || "Scanned Product",
-          ingredients: parsedData.ingredients || [],
-          allergens: parsedData.allergens || [],
-          nutritional_info: parsedData.nutritional_info || {},
-          health_analysis: parsedData.health_analysis || "Analysis unavailable",
-          health_score: parsedData.health_score || 5,
-          personalized_alerts: parsedData.personalized_alerts || parsedData.alerts || [],
-          suggestions: parsedData.suggestions || []
-        }
-      };
+      // *** ADD RAW TEXT TO RESPONSE ***
+      finalJson.raw_text = extractedText;
 
-      console.log("Gemini JSON parsing successful with personalization!");
+      console.log("Gemini JSON parsing successful!");
       
-      return new Response(JSON.stringify(response), {
+      return new Response(JSON.stringify(finalJson), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
 
     } catch (aiError) {
-      console.error("Gemini failed, falling back to basic parsing:", aiError);
+      console.error("Gemini failed, falling back to Regex:", aiError);
       const fallbackResult = parseNutritionText(extractedText);
+      // *** ADD RAW TEXT TO FALLBACK ***
+      fallbackResult.raw_text = extractedText; 
       
-      return new Response(JSON.stringify({
-        raw_text: extractedText,
-        gemini_data: fallbackResult
-      }), {
+      return new Response(JSON.stringify(fallbackResult), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -222,7 +163,8 @@ function parseNutritionText(text: string) {
     },
     health_analysis: "Basic OCR data (AI unavailable).",
     health_score: 5,
-    personalized_alerts: ["AI analysis unavailable - basic parsing only"],
-    suggestions: []
+    alerts: ["AI unavailable"],
+    suggestions: [],
+    raw_text: text // Add it here too for type safety if needed
   };
 }
