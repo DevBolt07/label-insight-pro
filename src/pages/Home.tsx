@@ -217,6 +217,52 @@ export function Home({ onNavigate, user }: HomeProps) {
     }
   };
 
+  if (isScanning) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <MobileHeader 
+          title="Scanning..."
+          showBack
+          onBack={() => {
+            setIsScanning(false);
+          }}
+        />
+        
+        <div className="px-4 py-12 max-w-md mx-auto">
+          <Card className="card-material">
+            <div className="p-8 text-center space-y-6">
+              <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center animate-pulse">
+                <Loader2 className="h-8 w-8 text-white animate-spin" />
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-headline-medium text-foreground">Analyzing Product</h3>
+                <p className="text-body-large text-muted-foreground">
+                  Our AI is processing the nutrition label and checking for health alerts...
+                </p>
+              </div>
+              
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-center justify-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span>Extracting ingredients</span>
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span>Checking health claims</span>
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span>Calculating health score</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <MobileHeader 

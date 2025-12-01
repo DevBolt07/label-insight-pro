@@ -10,12 +10,11 @@ import { BarcodeScanResult } from "@/hooks/useBarcodeScanner";
 import { useToast } from "@/hooks/use-toast";
 import { scanHistoryService } from "@/services/scanHistoryService";
 import { productService } from "@/services/productService";
-import { OCRResult } from "@/services/ocrService";
+import { ocrService, OCRResult } from "@/services/ocrService";
 import type { User } from "@supabase/supabase-js";
 import { analyzeProductWithBackend, UserProfile } from "@/services/backendApi";
 import { useBackendHealth } from "@/hooks/useBackendHealth";
 import { useTranslation } from "@/i18n";
-import { supabase } from "@/integrations/supabase/client";
 
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
@@ -156,47 +155,19 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
     setIsScanning(true);
 
     try {
-      const { data: ocrResult, error } = await supabase.functions.invoke('analyze-nutrition-label', {
-          body: file,
-      });
-
-      if (error) throw error;
-      
-      const normalizedProduct = {
-        name: ocrResult.product_name || "Scanned Product",
-        brand: "Detected via OCR",
-        image_url: URL.createObjectURL(file),
-        ingredients: JSON.stringify(ocrResult.ingredients || []),
-        grade: "", 
-        health_score: ocrResult.health_score,
-        nutrition_facts: ocrResult.nutritional_info,
-        health_warnings: ocrResult.alerts || [],
-        allergens: ocrResult.allergens || [],
-        additives: [],
-        categories: "",
-        nova_group: 0,
-        ai_analysis: ocrResult.health_analysis,
-        suggestions: ocrResult.suggestions
-      };
-
+      const ocrResult: OCRResult = await ocrService.processImage(file);
       setIsScanning(false);
-      
       onNavigate("results", {
-        productData: normalizedProduct,
+        ocrResult,
         scanned: true,
-        scanMethod: 'ocr',
-        fromBackend: true,
-        // *** PASS RAW TEXT HERE ***
-        rawText: ocrResult.raw_text 
+        scanMethod: 'ocr'
       });
-
     } catch (error) {
       setIsScanning(false);
-      console.error("Error during OCR analysis:", error);
       toast({
-        title: "Analysis Failed",
-        description: "Could not analyze the image. Please try again.",
-        variant: "destructive",
+        title: "OCR Error",
+        description: "Failed to process nutrition label. Please try again.",
+        variant: "destructive"
       });
     }
   };
