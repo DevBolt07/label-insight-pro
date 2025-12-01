@@ -165,17 +165,28 @@ function parseNutritionText(text: string) {
 
   return {
     product_name: "Scanned Product",
-    ingredients: (clean.match(/Ingredients?:?\s*([^.\n]+)/i)?.[1] || "Not found").split(','),
+    ingredients: (() => {
+      const match = clean.match(/Ingredients?:?\s*([\s\S]+?)(?:Allergen Advice|Allergy Advice|Allergens?:|Store in|Storage|Directions|Thoughtfully made|$)/i);
+      const raw = match?.[1] || "Not found";
+      return raw
+        .replace(/\n+/g, ' ')
+        .split(/[,•]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    })(),
     allergens: [],
     nutritional_info: {
       calories: find(/(?:Calories|Energy)\D*(\d+)/i), 
       total_fat: find(/Total\s*Fat\s*(\d+(?:\.\d+)?\w*)/i), 
-      saturated_fat: "0g", trans_fat: "0g", cholesterol: "0mg", 
+      saturated_fat: "0g", 
+      trans_fat: "0g", 
+      cholesterol: "0mg", 
       sodium: find(/Sodium\s*(\d+(?:\.\d+)?\w*)/i), 
       total_carbohydrate: find(/Carb(?:ohydrate)?s?\s*(\d+(?:\.\d+)?\w*)/i),
       dietary_fiber: "0g", 
       sugars: find(/Sugars?\s*(\d+(?:\.\d+)?\w*)/i), 
-      protein: find(/Protein\s*(\d+(?:\.\d+)?\w*)/i)
+      protein: find(/Protein\s*(\d+(?:\.\d+)?\w*)/i),
+      iron: find(/Iron\s*(\d+(?:\.\d+)?\w*)/i)
     },
     health_analysis: "Basic OCR data (AI unavailable).",
     health_score: 5,

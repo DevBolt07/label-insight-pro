@@ -55,8 +55,28 @@ class OCRService {
       console.log('Gemini Analysis successful:', data);
 
       // Map Gemini JSON response to your App's OCRResult format
-      const nutritionData = this.normalizeNutrition(data.nutrition_facts);
-      const ingredients = data.ingredients || [];
+      const rawNutritionFacts = data.nutrition_facts || data.nutritional_info || {};
+      const nutritionData = this.normalizeNutrition(rawNutritionFacts);
+
+      const baseIngredients: string[] = Array.isArray(data.ingredients) ? data.ingredients : [];
+      const allergens: string[] = Array.isArray(data.allergens) ? data.allergens : [];
+
+      const formatLabel = (label: string) =>
+        label
+          .replace(/_/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+
+      const nutritionLabels: string[] = Object.keys(rawNutritionFacts || {})
+        .map((key) => formatLabel(key))
+        .filter((label) => label.length > 0);
+
+      const ingredients: string[] = [...baseIngredients, ...nutritionLabels, ...allergens].filter(
+        (item, index, arr) =>
+          item &&
+          arr.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index
+      );
       
       // Calculate a basic health score based on findings
       const healthScore = this.calculateHealthScore(ingredients, nutritionData);
@@ -69,8 +89,8 @@ class OCRService {
         healthAnalysis: {
           healthScore,
           grade,
-          warnings: data.health_analysis?.warnings || [],
-          recommendations: data.health_analysis?.positives || []
+          warnings: data.health_analysis?.warnings || data.alerts || [],
+          recommendations: data.health_analysis?.positives || data.suggestions || []
         },
         ingredients: ingredients,
         claims: data.claims || [],
@@ -79,7 +99,7 @@ class OCRService {
           brand_name: data.brand_name,
           slogans: [],
           marketing_text: data.claims || [],
-          nutrition_facts: data.nutrition_facts || {},
+          nutrition_facts: rawNutritionFacts,
           miscellaneous: []
         },
         rawText: data.raw_text
