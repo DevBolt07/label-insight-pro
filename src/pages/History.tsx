@@ -23,32 +23,6 @@ const gradeColors = {
   E: "bg-gradient-danger text-danger-foreground"
 };
 
-// Simple HealthScoreBadge component (temporary fix)
-const HealthScoreBadge = ({ score, size = "md", className }: { score: number; size?: "sm" | "md" | "lg"; className?: string }) => {
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-healthy border-healthy bg-healthy/10";
-    if (score >= 60) return "text-moderate border-moderate bg-moderate/10";
-    if (score >= 40) return "text-warning border-warning bg-warning/10";
-    return "text-danger border-danger bg-danger/10";
-  };
-
-  const sizeClasses = {
-    sm: "h-6 px-2 text-xs",
-    md: "h-8 px-3 text-sm",
-    lg: "h-10 px-4 text-base"
-  };
-
-  return (
-    <div className={cn(
-      "inline-flex items-center justify-center rounded-full border font-semibold",
-      getScoreColor(score),
-      sizeClasses[size],
-      className
-    )}>
-      {score}/100
-    </div>
-  );
-};
 
 export function History({ onNavigate, user }: HistoryProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -190,7 +164,7 @@ export function History({ onNavigate, user }: HistoryProps) {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Card className="card-material">
             <div className="p-4 text-center">
               <div className="text-2xl font-bold text-foreground">{scanHistory.length}</div>
@@ -203,14 +177,6 @@ export function History({ onNavigate, user }: HistoryProps) {
                 {scanHistory.reduce((sum, item) => sum + item.alerts, 0)}
               </div>
               <div className="text-xs text-muted-foreground">Health Alerts</div>
-            </div>
-          </Card>
-          <Card className="card-material">
-            <div className="p-4 text-center">
-              <div className="text-2xl font-bold text-healthy">
-                {scanHistory.length > 0 ? Math.round(scanHistory.reduce((sum, item) => sum + item.score, 0) / scanHistory.length) : 0}
-              </div>
-              <div className="text-xs text-muted-foreground">Avg Score</div>
             </div>
           </Card>
         </div>
@@ -253,7 +219,6 @@ export function History({ onNavigate, user }: HistoryProps) {
                         <p className="text-sm text-muted-foreground truncate">{item.brand}</p>
                       </div>
                       <div className="flex items-center gap-2 ml-2">
-                        <HealthScoreBadge score={item.score} size="sm" />
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                           <MoreVertical className="h-4 w-4" />
                         </Button>

@@ -306,8 +306,8 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
           />
         )}
 
-        {/* OCR Health Score */}
-        {isOCRResult && (
+        {/* OCR Health Score - Removed as scores are not reliable */}
+        {/* {isOCRResult && (
           <HealthScoreCard
             score={healthScore}
             grade={healthGrade}
@@ -315,7 +315,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
             description="Based on nutritional analysis from label"
             className="animate-scale-in animate-stagger-1"
           />
-        )}
+        )} */}
 
         {/* Carbon Footprint */}
         {!isOCRResult && productData && (
