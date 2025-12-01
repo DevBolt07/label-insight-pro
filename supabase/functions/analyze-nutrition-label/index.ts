@@ -1,10 +1,9 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
-import { GoogleGenerativeAI } from 'npm:@google/generative-ai';
 
 // Configuration
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-const OCR_SPACE_API_KEY = 'K83414045188957'; 
+const OCR_SPACE_API_KEY = 'K83414045188957';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -60,26 +59,43 @@ serve(async (req) => {
       
       console.log("Step 2: Sending text to Gemini 2.5 Flash...");
 
-      const systemPrompt = `You are a nutrition expert. 
-      I will provide text extracted from a food label. 
-      Parse it into this EXACT JSON structure. If fields are missing, infer them or use "0".
-      
-      Required JSON:
-      {
-        "product_name": "Product Name",
-        "ingredients": ["List", "of", "ingredients"],
-        "allergens": ["List", "of", "allergens"],
-        "nutritional_info": {
-          "calories": "Value", "total_fat": "Value", "saturated_fat": "Value", 
-          "trans_fat": "Value", "cholesterol": "Value", "sodium": "Value", 
-          "total_carbohydrate": "Value", "dietary_fiber": "Value", 
-          "sugars": "Value", "protein": "Value"
-        },
-        "health_analysis": "Short summary",
-        "health_score": "1-10",
-        "alerts": ["Warnings"],
-        "suggestions": ["Suggestions"]
-      }`;
+      const systemPrompt = `You are a nutrition expert performing FULL-SPECTRUM EXTRACTION from food labels.
+
+CRITICAL INSTRUCTIONS:
+1. Extract EVERY ingredient listed, reading through ALL line breaks until you hit a stop section (allergen advice, storage instructions, etc.)
+2. Extract ALL nutritional values from the nutrition table (Energy, Protein, Fat, Carbohydrates, Sodium, Sugars, etc.)
+3. Extract ALL allergen information including "Contains" and "May contain traces of"
+4. Do NOT stop after the first 1-2 items - continue parsing until you've captured everything
+
+PARSING RULES:
+- Ingredients section: Read continuously through newlines, capture percentages in parentheses, include all items separated by commas, periods, or line breaks
+- Nutrition table: Extract all rows including Energy (kJ/kcal), Protein, Fat (total and saturated), Carbohydrates (total and sugars), Sodium, Fiber, etc.
+- Allergens: Capture both "Contains: X" and "May contain traces of: Y, Z"
+- Multi-line lists: Do NOT truncate - parse the entire block until hitting a clear section boundary
+
+Return this EXACT JSON structure:
+{
+  "product_name": "Product Name",
+  "ingredients": ["Complete list of ALL ingredients with percentages if shown"],
+  "allergens": ["All allergens including traces"],
+  "nutritional_info": {
+    "energy_kj": "Value with unit",
+    "energy_kcal": "Value with unit", 
+    "protein": "Value with unit",
+    "total_fat": "Value with unit",
+    "saturated_fat": "Value with unit",
+    "trans_fat": "Value with unit",
+    "carbohydrate": "Value with unit",
+    "sugars": "Value with unit",
+    "dietary_fiber": "Value with unit",
+    "sodium": "Value with unit",
+    "cholesterol": "Value with unit"
+  },
+  "health_analysis": "Brief summary",
+  "health_score": "1-10",
+  "alerts": ["Health warnings"],
+  "suggestions": ["Recommendations"]
+}`;
 
       const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
