@@ -7,4 +7,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.health-chat]
-verify_jwt = false 
+verify_jwt = false
+
+[functions.verify-claims]
+verify_jwt = false
