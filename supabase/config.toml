@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.verify-claims]
 verify_jwt = false
+
+[functions.suggest-alternatives]
+verify_jwt = false
