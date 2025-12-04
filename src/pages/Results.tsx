@@ -44,6 +44,8 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
   const [ingredientModalOpen, setIngredientModalOpen] = useState(false);
   const [claims, setClaims] = useState<Array<{claim: string; status: 'verified' | 'misleading' | 'false'; reason: string}>>([]);
   const [claimsLoading, setClaimsLoading] = useState(false);
+  const [alternatives, setAlternatives] = useState<Array<{name: string; brand: string; reason: string; benefits: string[]; healthierBecause: string}>>([]);
+  const [alternativesLoading, setAlternativesLoading] = useState(false);
 
   const productData = data?.productData;
   const ocrResult = data?.ocrResult;
@@ -135,7 +137,33 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
     fetchClaims();
   }, [productData, user.id, isOCRResult]);
 
-  // Calculate health score based on Nutri-Score and other factors
+  // Fetch healthier alternatives on mount
+  useEffect(() => {
+    const fetchAlternatives = async () => {
+      if (!productData || isOCRResult) return;
+      
+      setAlternativesLoading(true);
+      try {
+        const userProfile = await profileService.getProfile(user.id);
+        
+        const { data, error } = await supabase.functions.invoke('suggest-alternatives', {
+          body: { productData, userProfile }
+        });
+        
+        if (error) throw error;
+        if (data?.alternatives) {
+          setAlternatives(data.alternatives);
+        }
+      } catch (error) {
+        console.error('Failed to fetch alternatives:', error);
+      } finally {
+        setAlternativesLoading(false);
+      }
+    };
+    
+    fetchAlternatives();
+  }, [productData, user.id, isOCRResult]);
+
   const calculateHealthScore = (product: ProductData): number => {
     let score = 50; // Base score
     
@@ -1068,17 +1096,62 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
           </TabsContent>
 
           <TabsContent value="alternatives" className="space-y-3 mt-4">
-            <Card className="card-material">
-              <div className="p-8 text-center space-y-3">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center">
-                  <Sparkles className="h-8 w-8 text-muted-foreground" />
+            {alternativesLoading ? (
+              <Card className="card-material">
+                <div className="p-8 text-center space-y-3">
+                  <LoadingSpinner />
+                  <p className="text-sm text-muted-foreground">Finding healthier alternatives...</p>
                 </div>
-                <h4 className="font-semibold text-foreground">No Alternatives Yet</h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Healthier alternatives will be suggested based on your scans.
+              </Card>
+            ) : alternatives.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground px-1">
+                  Based on your profile and this product's nutrition, here are healthier options:
                 </p>
+                {alternatives.map((alt, index) => (
+                  <Card key={index} className="card-material overflow-hidden">
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-semibold text-foreground">{alt.name}</h4>
+                          <p className="text-xs text-muted-foreground">{alt.brand}</p>
+                        </div>
+                        <Badge variant="secondary" className="bg-healthy/10 text-healthy border-healthy/20">
+                          Healthier
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{alt.reason}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {alt.benefits.map((benefit, i) => (
+                          <Badge key={i} variant="outline" className="text-xs bg-primary/5">
+                            <CheckCircle className="h-3 w-3 mr-1 text-healthy" />
+                            {benefit}
+                          </Badge>
+                        ))}
+                      </div>
+                      <div className="pt-2 border-t border-border">
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Why it's better: </span>
+                          {alt.healthierBecause}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
               </div>
-            </Card>
+            ) : (
+              <Card className="card-material">
+                <div className="p-8 text-center space-y-3">
+                  <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center">
+                    <Sparkles className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h4 className="font-semibold text-foreground">No Alternatives Yet</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Healthier alternatives will be suggested based on your scans.
+                  </p>
+                </div>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
 
