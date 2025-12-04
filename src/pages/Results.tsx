@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { HealthScoreCard } from "@/components/ui/health-score-card";
+import { supabase } from "@/integrations/supabase/client";
+import { profileService } from "@/services/profileService";
 import { NutriScoreDetailed } from "@/components/ui/nutri-score-detailed";
 import { CarbonFootprintCard } from "@/components/ui/carbon-footprint-card";
 import { IngredientAlertCard, IngredientAlert } from "@/components/ui/ingredient-alert";
@@ -40,6 +42,8 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
   const [ingredientAnalysis, setIngredientAnalysis] = useState<IngredientAnalysis | null>(null);
   const [isAnalyzingIngredient, setIsAnalyzingIngredient] = useState(false);
   const [ingredientModalOpen, setIngredientModalOpen] = useState(false);
+  const [claims, setClaims] = useState<Array<{claim: string; status: 'verified' | 'misleading' | 'false'; reason: string}>>([]);
+  const [claimsLoading, setClaimsLoading] = useState(false);
 
   const productData = data?.productData;
   const ocrResult = data?.ocrResult;
@@ -102,6 +106,34 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
     return [];
   });
   const [loading, setLoading] = useState(false);
+
+  // Fetch claims verification on mount
+  useEffect(() => {
+    const fetchClaims = async () => {
+      if (!productData || isOCRResult) return;
+      
+      setClaimsLoading(true);
+      try {
+        // Fetch user profile
+        const userProfile = await profileService.getProfile(user.id);
+        
+        const { data, error } = await supabase.functions.invoke('verify-claims', {
+          body: { productData, userProfile }
+        });
+        
+        if (error) throw error;
+        if (data?.claims) {
+          setClaims(data.claims);
+        }
+      } catch (error) {
+        console.error('Failed to fetch claims:', error);
+      } finally {
+        setClaimsLoading(false);
+      }
+    };
+    
+    fetchClaims();
+  }, [productData, user.id, isOCRResult]);
 
   // Calculate health score based on Nutri-Score and other factors
   const calculateHealthScore = (product: ProductData): number => {
@@ -982,17 +1014,57 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
           </TabsContent>
 
           <TabsContent value="claims" className="space-y-3 mt-4">
-            <Card className="card-material">
-              <div className="p-8 text-center space-y-3">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center">
-                  <AlertTriangle className="h-8 w-8 text-muted-foreground" />
+            {claimsLoading ? (
+              <Card className="card-material">
+                <div className="p-8 text-center space-y-3">
+                  <LoadingSpinner size="md" />
+                  <p className="text-sm text-muted-foreground">Verifying claims...</p>
                 </div>
-                <h4 className="font-semibold text-foreground">No Claims Data</h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Claim verification will be available after scanning products.
-                </p>
+              </Card>
+            ) : claims.length > 0 ? (
+              <div className="space-y-3">
+                {claims.map((claim, index) => (
+                  <Card key={index} className="card-material">
+                    <div className="p-4 flex items-start gap-3">
+                      <div className={cn(
+                        "p-2 rounded-full shrink-0",
+                        claim.status === 'verified' && "bg-healthy/10",
+                        claim.status === 'misleading' && "bg-warning/10",
+                        claim.status === 'false' && "bg-danger/10"
+                      )}>
+                        {claim.status === 'verified' && <CheckCircle className="h-5 w-5 text-healthy" />}
+                        {claim.status === 'misleading' && <AlertTriangle className="h-5 w-5 text-warning" />}
+                        {claim.status === 'false' && <XCircle className="h-5 w-5 text-danger" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-foreground">{claim.claim}</span>
+                          <Badge variant={
+                            claim.status === 'verified' ? 'default' : 
+                            claim.status === 'misleading' ? 'secondary' : 'destructive'
+                          } className="text-xs capitalize">
+                            {claim.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{claim.reason}</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
               </div>
-            </Card>
+            ) : (
+              <Card className="card-material">
+                <div className="p-8 text-center space-y-3">
+                  <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl flex items-center justify-center">
+                    <AlertTriangle className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h4 className="font-semibold text-foreground">No Claims Data</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Claim verification will be available after scanning products.
+                  </p>
+                </div>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="alternatives" className="space-y-3 mt-4">
