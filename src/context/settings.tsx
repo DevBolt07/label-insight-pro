@@ -12,11 +12,6 @@ interface SettingsState {
   setTextSize: (v: TextSize) => void;
   language: string;
   setLanguage: (lang: string) => void;
-  soundEnabled: boolean;
-  setSoundEnabled: (v: boolean) => void;
-  alertSensitivity: number;
-  setAlertSensitivity: (v: number) => void;
-  playScanSound: () => void;
 }
 
 const defaultState: SettingsState = {
@@ -27,12 +22,7 @@ const defaultState: SettingsState = {
   textSize: "medium",
   setTextSize: () => {},
   language: "en",
-  setLanguage: () => {},
-  soundEnabled: true,
-  setSoundEnabled: () => {},
-  alertSensitivity: 75,
-  setAlertSensitivity: () => {},
-  playScanSound: () => {}
+  setLanguage: () => {}
 };
 
 const SettingsContext = createContext<SettingsState>(defaultState);
@@ -42,33 +32,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [highContrast, setHighContrastState] = useState<boolean>(() => settingsStorage.get().highContrast ?? false);
   const [textSize, setTextSizeState] = useState<TextSize>(() => settingsStorage.get().textSize ?? "medium");
   const [language, setLanguageState] = useState<string>(() => settingsStorage.get().language ?? "en");
-  const [soundEnabled, setSoundEnabledState] = useState<boolean>(() => settingsStorage.get().soundEnabled ?? true);
-  const [alertSensitivity, setAlertSensitivityState] = useState<number>(() => settingsStorage.get().alertSensitivity ?? 75);
-
-  // Create audio context for scan sound
-  const playScanSound = () => {
-    if (!soundEnabled) return;
-    
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.value = 1000;
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.2);
-    } catch (error) {
-      console.log('Could not play scan sound:', error);
-    }
-  };
 
   // apply to document and persist
   useEffect(() => {
@@ -89,9 +52,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         root.style.fontSize = "16px";
     }
 
-    // Set language attribute on html element
-    root.setAttribute('lang', language);
-
     // persist (merge with existing stored settings)
     const prev = settingsStorage.get() || {};
     settingsStorage.set({
@@ -99,29 +59,17 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       darkMode,
       highContrast,
       textSize,
-      language,
-      soundEnabled,
-      alertSensitivity
+      language
     });
-  }, [darkMode, highContrast, textSize, language, soundEnabled, alertSensitivity]);
+  }, [darkMode, highContrast, textSize, language]);
 
   const setDarkMode = (v: boolean) => setDarkModeState(v);
   const setHighContrast = (v: boolean) => setHighContrastState(v);
   const setTextSize = (v: TextSize) => setTextSizeState(v);
   const setLanguage = (lang: string) => setLanguageState(lang);
-  const setSoundEnabled = (v: boolean) => setSoundEnabledState(v);
-  const setAlertSensitivity = (v: number) => setAlertSensitivityState(v);
 
   return (
-    <SettingsContext.Provider value={{ 
-      darkMode, setDarkMode, 
-      highContrast, setHighContrast, 
-      textSize, setTextSize, 
-      language, setLanguage,
-      soundEnabled, setSoundEnabled,
-      alertSensitivity, setAlertSensitivity,
-      playScanSound
-    }}>
+    <SettingsContext.Provider value={{ darkMode, setDarkMode, highContrast, setHighContrast, textSize, setTextSize, language, setLanguage }}>
       {children}
     </SettingsContext.Provider>
   );
