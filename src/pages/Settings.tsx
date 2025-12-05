@@ -37,11 +37,16 @@ export function Settings({ onNavigate, user }: SettingsProps) {
   const { toast } = useToast();
   const [notifications, setNotifications] = useState(true);
   const [autoScan, setAutoScan] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [alertSensitivity, setAlertSensitivity] = useState([75]);
 
-  // Global settings from context
-  const { darkMode, setDarkMode, highContrast, setHighContrast, textSize, setTextSize, language, setLanguage } = useSettings();
+  // Global settings from context (persisted)
+  const { 
+    darkMode, setDarkMode, 
+    highContrast, setHighContrast, 
+    textSize, setTextSize, 
+    language, setLanguage,
+    soundEnabled, setSoundEnabled,
+    alertSensitivity, setAlertSensitivity
+  } = useSettings();
 
   const handleLogout = async () => {
     try {
@@ -153,8 +158,8 @@ export function Settings({ onNavigate, user }: SettingsProps) {
           label: "Alert Sensitivity",
           description: "Adjust threshold for health warnings",
           type: "slider",
-          value: alertSensitivity,
-          onChange: setAlertSensitivity,
+          value: [alertSensitivity],
+          onChange: (val: number[]) => setAlertSensitivity(val[0]),
           min: 0,
           max: 100,
           step: 5
