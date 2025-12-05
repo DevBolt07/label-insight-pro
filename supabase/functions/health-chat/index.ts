@@ -101,30 +101,45 @@ GUIDELINES:
       parts: [{ text: message }]
     });
 
-    // USE v1beta AND gemini-2.5-flash
+    // USE v1beta AND gemini-2.5-flash with increased token budget
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: contents,
-        // USE snake_case FOR REST API
         system_instruction: { parts: [{ text: systemPrompt }] },
         generation_config: { 
-            max_output_tokens: 500, 
-            temperature: 0.7 
+          max_output_tokens: 2048,
+          temperature: 0.7
         }
       }),
     });
 
+    const data = await response.json();
+    console.log('Gemini raw response:', JSON.stringify(data));
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
+      throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(data)}`);
     }
 
-    const data = await response.json();
     const assistantMessage = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const finishReason = data.candidates?.[0]?.finishReason;
 
-    if (!assistantMessage) throw new Error('No content in Gemini response');
+    console.log('Finish reason:', finishReason);
+
+    if (!assistantMessage) {
+      console.error('No content - finish reason:', finishReason);
+      // If MAX_TOKENS was hit during thinking, provide fallback
+      if (finishReason === 'MAX_TOKENS') {
+        return new Response(JSON.stringify({
+          response: "I understand your question. Based on your profile, I'd be happy to help with nutrition advice. Could you please ask a more specific question?",
+          conversationId: crypto.randomUUID()
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      throw new Error(`No content in Gemini response. Finish reason: ${finishReason}`);
+    }
 
     return new Response(JSON.stringify({
       response: assistantMessage,
