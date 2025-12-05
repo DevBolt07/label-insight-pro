@@ -32,10 +32,57 @@ serve(async (req) => {
 
     console.log(`Processing health chat question with Gemini: ${message}`);
 
-    const systemPrompt = `You are a knowledgeable and friendly nutrition advisor.
-    CURRENT CONTEXT: ${productData ? JSON.stringify(productData) : 'None'}
-    USER PROFILE: ${userProfile ? JSON.stringify(userProfile) : 'None'}
-    GUIDELINES: Be helpful, concise, and never give medical diagnoses.`;
+    // Build detailed user profile context
+    let userContext = 'No user profile available';
+    if (userProfile) {
+      const profileParts = [];
+      if (userProfile.first_name || userProfile.last_name) {
+        profileParts.push(`Name: ${[userProfile.first_name, userProfile.last_name].filter(Boolean).join(' ')}`);
+      }
+      if (userProfile.age) profileParts.push(`Age: ${userProfile.age} years old`);
+      if (userProfile.age_group) profileParts.push(`Age Group: ${userProfile.age_group}`);
+      if (userProfile.height_cm) profileParts.push(`Height: ${userProfile.height_cm} cm`);
+      if (userProfile.weight_kg) profileParts.push(`Weight: ${userProfile.weight_kg} kg`);
+      if (userProfile.bmi) profileParts.push(`BMI: ${userProfile.bmi}`);
+      if (userProfile.health_conditions?.length > 0) {
+        profileParts.push(`Health Conditions: ${userProfile.health_conditions.join(', ')}`);
+      }
+      if (userProfile.custom_health_conditions?.length > 0) {
+        profileParts.push(`Custom Health Conditions: ${userProfile.custom_health_conditions.join(', ')}`);
+      }
+      if (userProfile.allergies?.length > 0) {
+        profileParts.push(`Allergies: ${userProfile.allergies.join(', ')}`);
+      }
+      if (userProfile.custom_allergies?.length > 0) {
+        profileParts.push(`Custom Allergies: ${userProfile.custom_allergies.join(', ')}`);
+      }
+      if (userProfile.dietary_restrictions?.length > 0) {
+        profileParts.push(`Dietary Restrictions: ${userProfile.dietary_restrictions.join(', ')}`);
+      }
+      if (userProfile.dietary_preferences?.length > 0) {
+        profileParts.push(`Dietary Preferences: ${userProfile.dietary_preferences.join(', ')}`);
+      }
+      if (userProfile.custom_dietary_preferences?.length > 0) {
+        profileParts.push(`Custom Dietary Preferences: ${userProfile.custom_dietary_preferences.join(', ')}`);
+      }
+      userContext = profileParts.length > 0 ? profileParts.join('\n') : 'User has not filled in profile details yet';
+    }
+
+    const systemPrompt = `You are a knowledgeable and friendly nutrition advisor with access to the user's complete health profile.
+
+USER PROFILE INFORMATION:
+${userContext}
+
+CURRENT PRODUCT CONTEXT: ${productData ? JSON.stringify(productData) : 'No product currently being viewed'}
+
+GUIDELINES:
+- You have full access to the user's profile information shown above. Use it to provide personalized advice.
+- When asked about personal information (name, age, health conditions, allergies, etc.), refer to the USER PROFILE INFORMATION above.
+- Consider the user's health conditions, allergies, and dietary preferences when giving nutrition advice.
+- Alert the user if any ingredients in the current product conflict with their health profile.
+- Be helpful, concise, and friendly.
+- Never give medical diagnoses - recommend consulting healthcare professionals for serious health concerns.
+- If the user asks about information not in their profile, let them know they can update it in the Profile section.`;
 
     let contents = [];
     if (conversationHistory && conversationHistory.length > 0) {

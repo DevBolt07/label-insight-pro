@@ -46,6 +46,27 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
   const [claimsLoading, setClaimsLoading] = useState(false);
   const [alternatives, setAlternatives] = useState<Array<{name: string; brand: string; reason: string; benefits: string[]; healthierBecause: string}>>([]);
   const [alternativesLoading, setAlternativesLoading] = useState(false);
+  const [fullUserProfile, setFullUserProfile] = useState<any>(null);
+
+  // Fetch full user profile for chatbot
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.id) return;
+      try {
+        const profile = await profileService.getProfile(user.id);
+        if (profile) {
+          setFullUserProfile({
+            ...profile,
+            email: user.email,
+            user_id: user.id
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+    fetchUserProfile();
+  }, [user?.id, user?.email]);
 
   const productData = data?.productData;
   const ocrResult = data?.ocrResult;
@@ -1177,7 +1198,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
               <SheetTitle>AI Health Advisor</SheetTitle>
             </SheetHeader>
             <HealthChatbot 
-              userProfile={user} 
+              userProfile={fullUserProfile} 
               productData={productData || ocrResult} 
               className="h-full pb-10"
             />
