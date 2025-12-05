@@ -15,6 +15,7 @@ import type { User } from "@supabase/supabase-js";
 import { analyzeProductWithBackend, UserProfile } from "@/services/backendApi";
 import { useBackendHealth } from "@/hooks/useBackendHealth";
 import { useTranslation } from "@/i18n";
+import { useSettings } from "@/context/settings";
 
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
@@ -26,6 +27,7 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [showOCRScanner, setShowOCRScanner] = useState(false);
   const { toast } = useToast();
+  const { playScanSound } = useSettings();
   useBackendHealth();
 
   const handleBarcodeScan = () => {
@@ -35,6 +37,9 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   const handleBarcodeScanResult = async (result: BarcodeScanResult) => {
     setShowBarcodeScanner(false);
     setIsScanning(true);
+    
+    // Play scan sound on successful barcode detection
+    playScanSound();
 
     try {
       try {
