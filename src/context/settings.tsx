@@ -12,6 +12,10 @@ interface SettingsState {
   setTextSize: (v: TextSize) => void;
   language: string;
   setLanguage: (lang: string) => void;
+  scanSound: boolean;
+  setScanSound: (v: boolean) => void;
+  hapticFeedback: boolean;
+  setHapticFeedback: (v: boolean) => void;
 }
 
 const defaultState: SettingsState = {
@@ -22,7 +26,11 @@ const defaultState: SettingsState = {
   textSize: "medium",
   setTextSize: () => {},
   language: "en",
-  setLanguage: () => {}
+  setLanguage: () => {},
+  scanSound: true,
+  setScanSound: () => {},
+  hapticFeedback: true,
+  setHapticFeedback: () => {}
 };
 
 const SettingsContext = createContext<SettingsState>(defaultState);
@@ -32,6 +40,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [highContrast, setHighContrastState] = useState<boolean>(() => settingsStorage.get().highContrast ?? false);
   const [textSize, setTextSizeState] = useState<TextSize>(() => settingsStorage.get().textSize ?? "medium");
   const [language, setLanguageState] = useState<string>(() => settingsStorage.get().language ?? "en");
+  const [scanSound, setScanSoundState] = useState<boolean>(() => settingsStorage.get().scanSound ?? true);
+  const [hapticFeedback, setHapticFeedbackState] = useState<boolean>(() => settingsStorage.get().hapticFeedback ?? true);
 
   // apply to document and persist
   useEffect(() => {
@@ -59,17 +69,28 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       darkMode,
       highContrast,
       textSize,
-      language
+      language,
+      scanSound,
+      hapticFeedback
     });
-  }, [darkMode, highContrast, textSize, language]);
+  }, [darkMode, highContrast, textSize, language, scanSound, hapticFeedback]);
 
   const setDarkMode = (v: boolean) => setDarkModeState(v);
   const setHighContrast = (v: boolean) => setHighContrastState(v);
   const setTextSize = (v: TextSize) => setTextSizeState(v);
   const setLanguage = (lang: string) => setLanguageState(lang);
+  const setScanSound = (v: boolean) => setScanSoundState(v);
+  const setHapticFeedback = (v: boolean) => setHapticFeedbackState(v);
 
   return (
-    <SettingsContext.Provider value={{ darkMode, setDarkMode, highContrast, setHighContrast, textSize, setTextSize, language, setLanguage }}>
+    <SettingsContext.Provider value={{ 
+      darkMode, setDarkMode, 
+      highContrast, setHighContrast, 
+      textSize, setTextSize, 
+      language, setLanguage,
+      scanSound, setScanSound,
+      hapticFeedback, setHapticFeedback
+    }}>
       {children}
     </SettingsContext.Provider>
   );

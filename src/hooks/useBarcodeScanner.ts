@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import { useSettings } from '@/context/settings';
 
 export interface BarcodeScanResult {
   code: string;
@@ -74,6 +75,7 @@ const playScanSound = () => {
 };
 
 export function useBarcodeScanner() {
+  const { scanSound, hapticFeedback } = useSettings();
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [torchSupported, setTorchSupported] = useState(false);
@@ -126,8 +128,8 @@ export function useBarcodeScanner() {
           videoRef.current,
           (result, error) => {
             if (result) {
-              playScanSound();
-              triggerHapticFeedback();
+              if (scanSound) playScanSound();
+              if (hapticFeedback) triggerHapticFeedback();
               onSuccess({
                 code: result.getText(),
                 format: result.getBarcodeFormat().toString()
@@ -167,8 +169,8 @@ export function useBarcodeScanner() {
           videoRef.current,
           (result, error) => {
             if (result) {
-              playScanSound();
-              triggerHapticFeedback();
+              if (scanSound) playScanSound();
+              if (hapticFeedback) triggerHapticFeedback();
               onSuccess({
                 code: result.getText(),
                 format: result.getBarcodeFormat().toString()
@@ -185,7 +187,7 @@ export function useBarcodeScanner() {
       setError(err instanceof Error ? err.message : 'Failed to start camera');
       setIsScanning(false);
     }
-  }, []);
+  }, [scanSound, hapticFeedback]);
 
   const toggleTorch = useCallback(async () => {
     if (!torchSupported || !streamRef.current) return;
