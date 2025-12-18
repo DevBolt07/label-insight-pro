@@ -17,6 +17,7 @@ import {
   Languages, 
   Eye,
   Volume2,
+  Smartphone,
   Accessibility,
   Database,
   LogOut
@@ -37,11 +38,17 @@ export function Settings({ onNavigate, user }: SettingsProps) {
   const { toast } = useToast();
   const [notifications, setNotifications] = useState(true);
   const [autoScan, setAutoScan] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const [alertSensitivity, setAlertSensitivity] = useState([75]);
 
   // Global settings from context
-  const { darkMode, setDarkMode, highContrast, setHighContrast, textSize, setTextSize, language, setLanguage } = useSettings();
+  const { 
+    darkMode, setDarkMode, 
+    highContrast, setHighContrast, 
+    textSize, setTextSize, 
+    language, setLanguage,
+    scanSound, setScanSound,
+    hapticFeedback, setHapticFeedback
+  } = useSettings();
 
   const handleLogout = async () => {
     try {
@@ -135,12 +142,20 @@ export function Settings({ onNavigate, user }: SettingsProps) {
           onChange: setAutoScan
         },
         {
-          id: "sound",
+          id: "scanSound",
           label: "Scan Sound",
           description: "Play sound on successful scan",
           type: "switch",
-          value: soundEnabled,
-          onChange: setSoundEnabled
+          value: scanSound,
+          onChange: setScanSound
+        },
+        {
+          id: "hapticFeedback",
+          label: "Vibration",
+          description: "Vibrate on successful scan (mobile)",
+          type: "switch",
+          value: hapticFeedback,
+          onChange: setHapticFeedback
         }
       ]
     },
