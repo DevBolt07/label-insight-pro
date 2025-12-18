@@ -6,6 +6,18 @@ export interface BarcodeScanResult {
   format: string;
 }
 
+// Trigger haptic feedback (vibration) on mobile devices
+const triggerHapticFeedback = () => {
+  try {
+    if ('vibrate' in navigator) {
+      // Short vibration pattern: 50ms vibrate, 30ms pause, 50ms vibrate
+      navigator.vibrate([50, 30, 50]);
+    }
+  } catch (error) {
+    console.warn('Haptic feedback not available:', error);
+  }
+};
+
 // Play a realistic barcode scanner sound using Web Audio API
 const playScanSound = () => {
   try {
@@ -115,6 +127,7 @@ export function useBarcodeScanner() {
           (result, error) => {
             if (result) {
               playScanSound();
+              triggerHapticFeedback();
               onSuccess({
                 code: result.getText(),
                 format: result.getBarcodeFormat().toString()
@@ -155,6 +168,7 @@ export function useBarcodeScanner() {
           (result, error) => {
             if (result) {
               playScanSound();
+              triggerHapticFeedback();
               onSuccess({
                 code: result.getText(),
                 format: result.getBarcodeFormat().toString()
