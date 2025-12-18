@@ -6,6 +6,29 @@ export interface BarcodeScanResult {
   format: string;
 }
 
+// Play a success beep sound using Web Audio API
+const playScanSound = () => {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = 1800; // Higher pitch beep
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.15);
+  } catch (error) {
+    console.warn('Could not play scan sound:', error);
+  }
+};
+
 export function useBarcodeScanner() {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +82,7 @@ export function useBarcodeScanner() {
           videoRef.current,
           (result, error) => {
             if (result) {
+              playScanSound();
               onSuccess({
                 code: result.getText(),
                 format: result.getBarcodeFormat().toString()
@@ -98,6 +122,7 @@ export function useBarcodeScanner() {
           videoRef.current,
           (result, error) => {
             if (result) {
+              playScanSound();
               onSuccess({
                 code: result.getText(),
                 format: result.getBarcodeFormat().toString()
