@@ -20,7 +20,8 @@ import {
   Smartphone,
   Accessibility,
   Database,
-  LogOut
+  LogOut,
+  Play
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -87,6 +88,70 @@ export function Settings({ onNavigate, user }: SettingsProps) {
     });
   };
 
+  const playScanSoundPreview = () => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // Quick ascending chirp
+    const chirp = audioContext.createOscillator();
+    const chirpGain = audioContext.createGain();
+    chirp.connect(chirpGain);
+    chirpGain.connect(audioContext.destination);
+    chirp.type = 'sine';
+    chirp.frequency.setValueAtTime(800, audioContext.currentTime);
+    chirp.frequency.exponentialRampToValueAtTime(1600, audioContext.currentTime + 0.08);
+    chirpGain.gain.setValueAtTime(0.3, audioContext.currentTime);
+    chirpGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+    chirp.start(audioContext.currentTime);
+    chirp.stop(audioContext.currentTime + 0.1);
+    
+    // Confirmation beep
+    const beep = audioContext.createOscillator();
+    const beepGain = audioContext.createGain();
+    beep.connect(beepGain);
+    beepGain.connect(audioContext.destination);
+    beep.type = 'sine';
+    beep.frequency.setValueAtTime(1200, audioContext.currentTime + 0.12);
+    beepGain.gain.setValueAtTime(0, audioContext.currentTime);
+    beepGain.gain.setValueAtTime(0.25, audioContext.currentTime + 0.12);
+    beepGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.25);
+    beep.start(audioContext.currentTime + 0.12);
+    beep.stop(audioContext.currentTime + 0.25);
+    
+    // Harmonic layer
+    const harmonic = audioContext.createOscillator();
+    const harmonicGain = audioContext.createGain();
+    harmonic.connect(harmonicGain);
+    harmonicGain.connect(audioContext.destination);
+    harmonic.type = 'triangle';
+    harmonic.frequency.setValueAtTime(2400, audioContext.currentTime + 0.12);
+    harmonicGain.gain.setValueAtTime(0, audioContext.currentTime);
+    harmonicGain.gain.setValueAtTime(0.1, audioContext.currentTime + 0.12);
+    harmonicGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+    harmonic.start(audioContext.currentTime + 0.12);
+    harmonic.stop(audioContext.currentTime + 0.2);
+
+    toast({
+      title: "Scan Sound",
+      description: "This is the sound you'll hear on scan"
+    });
+  };
+
+  const triggerVibrationPreview = () => {
+    if ('vibrate' in navigator) {
+      navigator.vibrate([50, 30, 50]);
+      toast({
+        title: "Vibration",
+        description: "This is the vibration you'll feel on scan"
+      });
+    } else {
+      toast({
+        title: "Vibration Not Supported",
+        description: "Your device doesn't support vibration",
+        variant: "destructive"
+      });
+    }
+  };
+
   const settingsSections = [
     {
       title: "Notifications",
@@ -147,7 +212,8 @@ export function Settings({ onNavigate, user }: SettingsProps) {
           description: "Play sound on successful scan",
           type: "switch",
           value: scanSound,
-          onChange: setScanSound
+          onChange: setScanSound,
+          testAction: playScanSoundPreview
         },
         {
           id: "hapticFeedback",
@@ -155,7 +221,8 @@ export function Settings({ onNavigate, user }: SettingsProps) {
           description: "Vibrate on successful scan (mobile)",
           type: "switch",
           value: hapticFeedback,
-          onChange: setHapticFeedback
+          onChange: setHapticFeedback,
+          testAction: triggerVibrationPreview
         }
       ]
     },
@@ -259,11 +326,23 @@ export function Settings({ onNavigate, user }: SettingsProps) {
                           </p>
                         </div>
                         {item.type === "switch" && (
-                          <Switch
-                            id={item.id}
-                            checked={item.value as boolean}
-                            onCheckedChange={item.onChange as (checked: boolean) => void}
-                          />
+                          <div className="flex items-center gap-2">
+                            {item.testAction && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={item.testAction}
+                              >
+                                <Play className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Switch
+                              id={item.id}
+                              checked={item.value as boolean}
+                              onCheckedChange={item.onChange as (checked: boolean) => void}
+                            />
+                          </div>
                         )}
                       </div>
                       {item.type === "select" && (
