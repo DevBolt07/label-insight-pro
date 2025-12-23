@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { settingsStorage } from "@/utils/storage";
+import type { ScanSoundType } from "@/utils/scanSounds";
 
 type TextSize = "small" | "medium" | "large";
 
@@ -14,6 +15,8 @@ interface SettingsState {
   setLanguage: (lang: string) => void;
   scanSound: boolean;
   setScanSound: (v: boolean) => void;
+  scanSoundType: ScanSoundType;
+  setScanSoundType: (v: ScanSoundType) => void;
   hapticFeedback: boolean;
   setHapticFeedback: (v: boolean) => void;
 }
@@ -29,6 +32,8 @@ const defaultState: SettingsState = {
   setLanguage: () => {},
   scanSound: true,
   setScanSound: () => {},
+  scanSoundType: "scanner",
+  setScanSoundType: () => {},
   hapticFeedback: true,
   setHapticFeedback: () => {}
 };
@@ -41,6 +46,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [textSize, setTextSizeState] = useState<TextSize>(() => settingsStorage.get().textSize ?? "medium");
   const [language, setLanguageState] = useState<string>(() => settingsStorage.get().language ?? "en");
   const [scanSound, setScanSoundState] = useState<boolean>(() => settingsStorage.get().scanSound ?? true);
+  const [scanSoundType, setScanSoundTypeState] = useState<ScanSoundType>(() => settingsStorage.get().scanSoundType ?? "scanner");
   const [hapticFeedback, setHapticFeedbackState] = useState<boolean>(() => settingsStorage.get().hapticFeedback ?? true);
 
   // apply to document and persist
@@ -71,15 +77,17 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       textSize,
       language,
       scanSound,
+      scanSoundType,
       hapticFeedback
     });
-  }, [darkMode, highContrast, textSize, language, scanSound, hapticFeedback]);
+  }, [darkMode, highContrast, textSize, language, scanSound, scanSoundType, hapticFeedback]);
 
   const setDarkMode = (v: boolean) => setDarkModeState(v);
   const setHighContrast = (v: boolean) => setHighContrastState(v);
   const setTextSize = (v: TextSize) => setTextSizeState(v);
   const setLanguage = (lang: string) => setLanguageState(lang);
   const setScanSound = (v: boolean) => setScanSoundState(v);
+  const setScanSoundType = (v: ScanSoundType) => setScanSoundTypeState(v);
   const setHapticFeedback = (v: boolean) => setHapticFeedbackState(v);
 
   return (
@@ -89,6 +97,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       textSize, setTextSize, 
       language, setLanguage,
       scanSound, setScanSound,
+      scanSoundType, setScanSoundType,
       hapticFeedback, setHapticFeedback
     }}>
       {children}
