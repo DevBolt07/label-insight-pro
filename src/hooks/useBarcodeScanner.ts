@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import { useSettings } from '@/context/settings';
+import { playScanSound } from '@/utils/scanSounds';
 
 export interface BarcodeScanResult {
   code: string;
@@ -19,63 +20,8 @@ const triggerHapticFeedback = () => {
   }
 };
 
-// Play a realistic barcode scanner sound using Web Audio API
-const playScanSound = () => {
-  try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const now = audioContext.currentTime;
-    
-    // Create master gain for overall volume
-    const masterGain = audioContext.createGain();
-    masterGain.connect(audioContext.destination);
-    masterGain.gain.setValueAtTime(0.4, now);
-    
-    // First tone - quick ascending chirp
-    const osc1 = audioContext.createOscillator();
-    const gain1 = audioContext.createGain();
-    osc1.connect(gain1);
-    gain1.connect(masterGain);
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(800, now);
-    osc1.frequency.exponentialRampToValueAtTime(1400, now + 0.08);
-    gain1.gain.setValueAtTime(0.5, now);
-    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-    osc1.start(now);
-    osc1.stop(now + 0.1);
-    
-    // Second tone - confirmation beep
-    const osc2 = audioContext.createOscillator();
-    const gain2 = audioContext.createGain();
-    osc2.connect(gain2);
-    gain2.connect(masterGain);
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(1200, now + 0.1);
-    gain2.gain.setValueAtTime(0, now);
-    gain2.gain.setValueAtTime(0.6, now + 0.1);
-    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-    osc2.start(now + 0.1);
-    osc2.stop(now + 0.25);
-    
-    // Third tone - harmonic layer for richness
-    const osc3 = audioContext.createOscillator();
-    const gain3 = audioContext.createGain();
-    osc3.connect(gain3);
-    gain3.connect(masterGain);
-    osc3.type = 'triangle';
-    osc3.frequency.setValueAtTime(600, now + 0.1);
-    gain3.gain.setValueAtTime(0, now);
-    gain3.gain.setValueAtTime(0.3, now + 0.1);
-    gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-    osc3.start(now + 0.1);
-    osc3.stop(now + 0.2);
-    
-  } catch (error) {
-    console.warn('Could not play scan sound:', error);
-  }
-};
-
 export function useBarcodeScanner() {
-  const { scanSound, hapticFeedback } = useSettings();
+  const { scanSound, scanSoundType, hapticFeedback } = useSettings();
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [torchSupported, setTorchSupported] = useState(false);
@@ -128,7 +74,7 @@ export function useBarcodeScanner() {
           videoRef.current,
           (result, error) => {
             if (result) {
-              if (scanSound) playScanSound();
+              if (scanSound) playScanSound(scanSoundType);
               if (hapticFeedback) triggerHapticFeedback();
               onSuccess({
                 code: result.getText(),
@@ -169,7 +115,7 @@ export function useBarcodeScanner() {
           videoRef.current,
           (result, error) => {
             if (result) {
-              if (scanSound) playScanSound();
+              if (scanSound) playScanSound(scanSoundType);
               if (hapticFeedback) triggerHapticFeedback();
               onSuccess({
                 code: result.getText(),
@@ -187,7 +133,7 @@ export function useBarcodeScanner() {
       setError(err instanceof Error ? err.message : 'Failed to start camera');
       setIsScanning(false);
     }
-  }, [scanSound, hapticFeedback]);
+  }, [scanSound, scanSoundType, hapticFeedback]);
 
   const toggleTorch = useCallback(async () => {
     if (!torchSupported || !streamRef.current) return;

@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User } from '@supabase/supabase-js';
 import { useSettings } from "@/context/settings";
 import { useTranslation } from "@/i18n";
+import { playScanSound, SCAN_SOUND_OPTIONS, type ScanSoundType } from "@/utils/scanSounds";
 
 interface SettingsProps {
   onNavigate: (page: string) => void;
@@ -48,6 +49,7 @@ export function Settings({ onNavigate, user }: SettingsProps) {
     textSize, setTextSize, 
     language, setLanguage,
     scanSound, setScanSound,
+    scanSoundType, setScanSoundType,
     hapticFeedback, setHapticFeedback
   } = useSettings();
 
@@ -88,51 +90,11 @@ export function Settings({ onNavigate, user }: SettingsProps) {
     });
   };
 
-  const playScanSoundPreview = () => {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    
-    // Quick ascending chirp
-    const chirp = audioContext.createOscillator();
-    const chirpGain = audioContext.createGain();
-    chirp.connect(chirpGain);
-    chirpGain.connect(audioContext.destination);
-    chirp.type = 'sine';
-    chirp.frequency.setValueAtTime(800, audioContext.currentTime);
-    chirp.frequency.exponentialRampToValueAtTime(1600, audioContext.currentTime + 0.08);
-    chirpGain.gain.setValueAtTime(0.3, audioContext.currentTime);
-    chirpGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-    chirp.start(audioContext.currentTime);
-    chirp.stop(audioContext.currentTime + 0.1);
-    
-    // Confirmation beep
-    const beep = audioContext.createOscillator();
-    const beepGain = audioContext.createGain();
-    beep.connect(beepGain);
-    beepGain.connect(audioContext.destination);
-    beep.type = 'sine';
-    beep.frequency.setValueAtTime(1200, audioContext.currentTime + 0.12);
-    beepGain.gain.setValueAtTime(0, audioContext.currentTime);
-    beepGain.gain.setValueAtTime(0.25, audioContext.currentTime + 0.12);
-    beepGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.25);
-    beep.start(audioContext.currentTime + 0.12);
-    beep.stop(audioContext.currentTime + 0.25);
-    
-    // Harmonic layer
-    const harmonic = audioContext.createOscillator();
-    const harmonicGain = audioContext.createGain();
-    harmonic.connect(harmonicGain);
-    harmonicGain.connect(audioContext.destination);
-    harmonic.type = 'triangle';
-    harmonic.frequency.setValueAtTime(2400, audioContext.currentTime + 0.12);
-    harmonicGain.gain.setValueAtTime(0, audioContext.currentTime);
-    harmonicGain.gain.setValueAtTime(0.1, audioContext.currentTime + 0.12);
-    harmonicGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-    harmonic.start(audioContext.currentTime + 0.12);
-    harmonic.stop(audioContext.currentTime + 0.2);
-
+  const playScanSoundPreview = (soundType?: ScanSoundType) => {
+    playScanSound(soundType ?? scanSoundType);
     toast({
       title: "Scan Sound",
-      description: "This is the sound you'll hear on scan"
+      description: `Playing "${SCAN_SOUND_OPTIONS.find(o => o.value === (soundType ?? scanSoundType))?.label}" sound`
     });
   };
 
@@ -213,6 +175,16 @@ export function Settings({ onNavigate, user }: SettingsProps) {
           type: "switch",
           value: scanSound,
           onChange: setScanSound,
+          testAction: () => playScanSoundPreview()
+        },
+        {
+          id: "scanSoundType",
+          label: "Sound Type",
+          description: "Choose scan sound style",
+          type: "select",
+          value: scanSoundType,
+          onChange: setScanSoundType,
+          options: SCAN_SOUND_OPTIONS,
           testAction: playScanSoundPreview
         },
         {
@@ -346,21 +318,33 @@ export function Settings({ onNavigate, user }: SettingsProps) {
                         )}
                       </div>
                       {item.type === "select" && (
-                        <Select 
-                          value={item.value as string} 
-                          onValueChange={item.onChange as (value: string) => void}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {item.options?.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Select 
+                            value={item.value as string} 
+                            onValueChange={item.onChange as (value: string) => void}
+                          >
+                            <SelectTrigger className="flex-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {item.options?.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {item.testAction && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => item.testAction?.(item.value as ScanSoundType)}
+                            >
+                              <Play className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       )}
                       {item.type === "slider" && (
                         <div className="space-y-2">
