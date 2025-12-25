@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import type { User } from "@supabase/supabase-js";
 import { analyzeProductWithBackend, UserProfile } from "@/services/backendApi";
 import { useBackendHealth } from "@/hooks/useBackendHealth";
 import { useTranslation } from "@/i18n";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface ScannerProps {
   onNavigate: (page: string, data?: any) => void;
@@ -36,10 +37,56 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
   const [showOCRScanner, setShowOCRScanner] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   useBackendHealth();
 
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Fetch autocomplete suggestions
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (debouncedSearchQuery.trim().length < 2) {
+        setSuggestions([]);
+        return;
+      }
+
+      setIsFetchingSuggestions(true);
+      try {
+        const results = await productService.searchProduct(debouncedSearchQuery);
+        setSuggestions(results?.slice(0, 5) || []);
+      } catch (error) {
+        console.error("Autocomplete error:", error);
+        setSuggestions([]);
+      } finally {
+        setIsFetchingSuggestions(false);
+      }
+    };
+
+    fetchSuggestions();
+  }, [debouncedSearchQuery]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target as Node) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const handleBarcodeScan = () => {
     setShowBarcodeScanner(true);
   };
@@ -417,10 +464,20 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
+                  ref={searchInputRef}
                   placeholder="e.g., Maggi, Coca-Cola, Oreo..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearchByName()}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setShowSuggestions(false);
+                      handleSearchByName();
+                    }
+                  }}
                   className="pr-8"
                 />
                 {searchQuery && (
@@ -431,8 +488,52 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
                     <X className="h-4 w-4" />
                   </button>
                 )}
+                
+                {/* Autocomplete Suggestions */}
+                {showSuggestions && searchQuery.length >= 2 && (suggestions.length > 0 || isFetchingSuggestions) && (
+                  <div
+                    ref={suggestionsRef}
+                    className="absolute z-50 w-full mt-1 bg-background border border-border rounded-xl shadow-lg overflow-hidden"
+                  >
+                    {isFetchingSuggestions && suggestions.length === 0 ? (
+                      <div className="p-3 flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Searching...</span>
+                      </div>
+                    ) : (
+                      suggestions.map((suggestion, index) => (
+                        <div
+                          key={suggestion.code || index}
+                          className="flex items-center gap-3 p-3 hover:bg-muted cursor-pointer transition-colors border-b border-border last:border-b-0"
+                          onClick={() => {
+                            setShowSuggestions(false);
+                            handleSelectSearchResult(suggestion);
+                          }}
+                        >
+                          {suggestion.image_url ? (
+                            <img
+                              src={suggestion.image_url}
+                              alt={suggestion.product_name}
+                              className="w-10 h-10 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                              <Search className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground truncate text-sm">{suggestion.product_name}</p>
+                            {suggestion.brands && (
+                              <p className="text-xs text-muted-foreground truncate">{suggestion.brands}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
-              <Button onClick={handleSearchByName} disabled={isSearching || !searchQuery.trim()}>
+              <Button onClick={() => { setShowSuggestions(false); handleSearchByName(); }} disabled={isSearching || !searchQuery.trim()}>
                 {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
