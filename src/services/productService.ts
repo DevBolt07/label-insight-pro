@@ -163,16 +163,24 @@ export const productService = {
 
   async searchProduct(productName: string): Promise<any[]> {
     try {
+      // Try backend first
       const response = await fetch(getBackendEndpoint(`/search-product/${encodeURIComponent(productName)}`));
 
-      if (!response.ok) {
-        throw new Error('Search failed');
+      if (response.ok) {
+        return await response.json();
       }
-
-      return await response.json();
+      throw new Error('Backend search failed');
     } catch (error) {
-      console.error('Error searching product:', error);
-      throw error;
+      console.log('Backend search failed, falling back to OpenFoodFacts:', error);
+      
+      // Fallback to OpenFoodFacts search
+      try {
+        const { openFoodFactsService } = await import('@/services/openFoodFacts');
+        return await openFoodFactsService.searchProducts(productName, 10);
+      } catch (offError) {
+        console.error('OpenFoodFacts search also failed:', offError);
+        throw error;
+      }
     }
   }
 };
