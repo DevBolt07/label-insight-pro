@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Card } from "@/components/ui/card";
-import { Scan, Image, Zap, Loader2, FileText } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Scan, Image, Zap, Loader2, FileText, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { OCRScanner } from "@/components/ocr-scanner";
@@ -21,15 +23,166 @@ interface ScannerProps {
   user: User;
 }
 
+interface SearchResult {
+  code: string;
+  product_name: string;
+  brands?: string;
+  image_url?: string;
+}
+
 export function Scanner({ onNavigate, user }: ScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [showOCRScanner, setShowOCRScanner] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const { toast } = useToast();
   useBackendHealth();
 
   const handleBarcodeScan = () => {
     setShowBarcodeScanner(true);
+  };
+
+  const handleSearchByName = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      const results = await productService.searchProduct(searchQuery);
+      setSearchResults(results || []);
+      
+      if (!results || results.length === 0) {
+        toast({
+          title: "No Results",
+          description: `No products found for "${searchQuery}"`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+      toast({
+        title: "Search Error",
+        description: "Failed to search products. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectSearchResult = async (result: SearchResult) => {
+    setIsScanning(true);
+    setSearchResults([]);
+    setSearchQuery("");
+    
+    try {
+      const userProfile: UserProfile = {
+        age: 30,
+        hasDiabetes: false,
+        hasHighBP: false,
+        isChild: false,
+        hasHeartDisease: false,
+        isPregnant: false,
+        allergies: [],
+      };
+
+      const backendResult = await analyzeProductWithBackend(result.code, userProfile);
+      
+      const savedProduct = await productService.createOrUpdateProduct({
+        barcode: result.code,
+        name: backendResult.product_name || result.product_name,
+        brand: result.brands || "",
+        image_url: result.image_url || "",
+        categories: "",
+        ingredients: JSON.stringify(backendResult.ingredients),
+        grade: "",
+        health_score: backendResult.health_risk_score,
+        nutriscore: "",
+        nova_group: 0,
+        allergens: [],
+        additives: [],
+        health_warnings: backendResult.alerts,
+        nutrition_facts: backendResult.nutritional_info || {},
+      });
+
+      await scanHistoryService.addScanToHistory({
+        user_id: user.id,
+        product_id: savedProduct.id,
+        scan_method: 'search',
+      });
+
+      setIsScanning(false);
+      
+      onNavigate("results", {
+        productData: {
+          ...savedProduct,
+          healthWarnings: backendResult.alerts,
+          suggestions: backendResult.suggestions,
+        },
+        scanned: true,
+        fromBackend: true,
+      });
+      
+    } catch (backendError) {
+      console.log('Backend analysis failed, falling back to OpenFoodFacts:', backendError);
+      
+      try {
+        const productData = await openFoodFactsService.getProductByBarcode(result.code);
+        
+        if (productData) {
+          const savedProduct = await productService.createOrUpdateProduct({
+            barcode: result.code,
+            name: productData.name,
+            brand: productData.brand,
+            image_url: productData.image,
+            categories: productData.categories,
+            ingredients: productData.ingredients,
+            grade: productData.grade,
+            health_score: productData.healthScore,
+            nutriscore: productData.nutriscore,
+            nova_group: productData.nova_group,
+            allergens: productData.allergens,
+            additives: productData.additives,
+            health_warnings: productData.healthWarnings,
+            nutrition_facts: productData.nutritionFacts,
+          });
+
+          await scanHistoryService.addScanToHistory({
+            user_id: user.id,
+            product_id: savedProduct.id,
+            scan_method: 'search',
+          });
+
+          setIsScanning(false);
+          
+          onNavigate("results", {
+            productData,
+            scanned: true,
+            fromBackend: false,
+          });
+        } else {
+          setIsScanning(false);
+          toast({
+            title: "Product Not Found",
+            description: "Could not fetch product details.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        setIsScanning(false);
+        toast({
+          title: "Error",
+          description: "Failed to fetch product information.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchResults([]);
   };
 
   const handleBarcodeScanResult = async (result: BarcodeScanResult) => {
@@ -254,6 +407,77 @@ export function Scanner({ onNavigate, user }: ScannerProps) {
       />
 
       <div className="px-4 py-6 max-w-md mx-auto space-y-6">
+        {/* Search by Name */}
+        <Card className="card-material">
+          <div className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Search className="h-5 w-5 text-primary" />
+              <h3 className="text-title-large text-foreground">Search by Name</h3>
+            </div>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  placeholder="e.g., Maggi, Coca-Cola, Oreo..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearchByName()}
+                  className="pr-8"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={clearSearch}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <Button onClick={handleSearchByName} disabled={isSearching || !searchQuery.trim()}>
+                {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        {/* Search Results */}
+        {searchResults.length > 0 && (
+          <Card className="card-material">
+            <div className="p-4 space-y-3">
+              <h3 className="text-title-medium text-foreground">
+                Results ({searchResults.length})
+              </h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {searchResults.map((result, index) => (
+                  <div
+                    key={result.code || index}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+                    onClick={() => handleSelectSearchResult(result)}
+                  >
+                    {result.image_url ? (
+                      <img
+                        src={result.image_url}
+                        alt={result.product_name}
+                        className="w-12 h-12 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                        <Search className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground truncate">{result.product_name}</p>
+                      {result.brands && (
+                        <p className="text-sm text-muted-foreground truncate">{result.brands}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Scan Options */}
         <div className="space-y-4">
           {scanOptions.map((option, index) => {
             const Icon = option.icon;
