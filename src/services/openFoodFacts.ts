@@ -141,6 +141,35 @@ export interface ProductData {
 
 class OpenFoodFactsService {
   private readonly baseUrl = 'https://world.openfoodfacts.org/api/v2';
+  private readonly searchUrl = 'https://world.openfoodfacts.org/cgi/search.pl';
+
+  async searchProducts(query: string, limit: number = 10): Promise<Array<{
+    code: string;
+    product_name: string;
+    brands?: string;
+    image_url?: string;
+  }>> {
+    try {
+      const response = await fetch(
+        `${this.searchUrl}?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=${limit}`
+      );
+      const data = await response.json();
+
+      if (!data.products || data.products.length === 0) {
+        return [];
+      }
+
+      return data.products.map((p: any) => ({
+        code: p.code,
+        product_name: p.product_name || p.product_name_en || 'Unknown Product',
+        brands: p.brands,
+        image_url: p.image_front_url || p.image_url,
+      }));
+    } catch (error) {
+      console.error('Error searching products:', error);
+      return [];
+    }
+  }
 
   async getProductByBarcode(barcode: string): Promise<ProductData | null> {
     try {
