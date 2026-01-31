@@ -1,5 +1,7 @@
+/// <reference types="vite/client" />
+
 export const getBackendUrl = (): string => {
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+  const backendUrl = import.meta.env?.VITE_BACKEND_URL;
 
   if (!backendUrl) {
     console.warn('VITE_BACKEND_URL is not configured. Using default: http://localhost:8000');
@@ -10,7 +12,7 @@ export const getBackendUrl = (): string => {
 };
 
 export const isBackendConfigured = (): boolean => {
-  return !!import.meta.env.VITE_BACKEND_URL;
+  return !!import.meta.env?.VITE_BACKEND_URL;
 };
 
 export const getBackendEndpoint = (path: string): string => {
