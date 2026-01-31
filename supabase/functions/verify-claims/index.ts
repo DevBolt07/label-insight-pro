@@ -150,8 +150,22 @@ Respond with ONLY a valid JSON array. No explanation text before or after. Examp
 
   } catch (error) {
     console.error('Error verifying claims:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Return fallback claims instead of 500 for rate limit errors
+    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+      console.log('Rate limited - returning fallback claims');
+      const { productData } = await req.json().catch(() => ({ productData: null }));
+      return new Response(JSON.stringify({ 
+        claims: generateFallbackClaims(productData || {}),
+        rateLimited: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: errorMessage,
       claims: []
     }), {
       status: 500,

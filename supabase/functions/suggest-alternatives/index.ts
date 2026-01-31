@@ -126,8 +126,21 @@ IMPORTANT: Suggest REAL products that exist in supermarkets. Be specific with br
 
   } catch (error) {
     console.error('Error suggesting alternatives:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Return fallback alternatives instead of 500 for rate limit errors
+    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+      console.log('Rate limited - returning fallback alternatives');
+      return new Response(JSON.stringify({ 
+        alternatives: generateFallbackAlternatives({}, ''),
+        rateLimited: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: errorMessage,
       alternatives: []
     }), {
       status: 500,
