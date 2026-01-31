@@ -139,18 +139,122 @@ HIDDEN_SUGARS = ['maltodextrin', 'dextrose', 'fructose', 'sucrose', 'corn syrup'
 HARMFUL_ADDITIVES = ['sodium nitrate', 'sodium nitrite', 'potassium bromate', 'propyl paraben', 'butylated hydroxyanisole',
                      'butylated hydroxytoluene', 'potassium iodate', 'azodicarbonamide', 'brominated vegetable oil']
 
-# Fetch product data from Open Food Facts
+# Fetch product data from Open Food Facts with Ranking
 def get_product_data(barcode: str) -> Optional[Dict]:
-    url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
+    # Use search API to potentially find multiple entries for the same barcode (rare but possible)
+    # or simply to standardize on the parsing logic
+    url = f"https://world.openfoodfacts.org/cgi/search.pl?code={barcode}&search_simple=1&action=process&json=1"
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            if data.get('status') == 1:
-                return data['product']
+            products = data.get('products', [])
+            
+            if not products:
+                # Fallback to direct V0 API if search fails
+                fallback_url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
+                fb_res = requests.get(fallback_url, timeout=5)
+                if fb_res.status_code == 200 and fb_res.json().get('status') == 1:
+                    return fb_res.json()['product']
+                return None
+            
+            # Rank and select best candidate
+            selected = select_best_candidate(products)
+            return selected
+            
         return None
-    except Exception:
+    except Exception as e:
+        print(f"OFF API Error: {e}")
         return None
+
+def calculate_quality_score(product: Dict, ocr_ingredients: List[str] = None) -> Dict:
+    score = 0
+    breakdown = []
+    
+    # 1. Identity Completeness (Max 20)
+    if product.get('product_name'):
+        score += 10
+        breakdown.append("name")
+    if product.get('brands'):
+        score += 10
+        breakdown.append("brand")
+        
+    # 2. Ingredients Completeness (Max 30)
+    if product.get('ingredients_text'):
+        score += 15
+        breakdown.append("ing_text")
+    
+    # Count parsed ingredients
+    tag_count = len(product.get('ingredients_tags', []))
+    if tag_count > 0:
+        score += min(15, tag_count * 1) # Cap at 15
+        breakdown.append(f"ing_tags({tag_count})")
+        
+    # 3. Nutrition Completeness (Max 20)
+    nutriments = product.get('nutriments', {})
+    required_nutrients = ['energy-kcal_100g', 'fat_100g', 'saturated-fat_100g', 
+                          'carbohydrates_100g', 'sugars_100g', 'proteins_100g', 'salt_100g']
+    present_nutrients = sum(1 for n in required_nutrients if n in nutriments)
+    score += (present_nutrients / 7) * 20
+    breakdown.append(f"nutrition({present_nutrients}/7)")
+    
+    # 4. Media Completeness (Max 15)
+    images = product.get('images', {})
+    media_score = 0
+    if product.get('image_front_url') or 'front' in images: media_score += 5
+    if product.get('image_ingredients_url') or 'ingredients' in images: media_score += 5
+    if product.get('image_nutrition_url') or 'nutrition' in images: media_score += 5
+    score += media_score
+    breakdown.append(f"media({media_score})")
+
+    # 5. Data Freshness (Max 5)
+    last_mod = product.get('last_modified_t', 0)
+    import time
+    if last_mod > time.time() - (365 * 24 * 3600): # Updated in last year
+        score += 5
+        breakdown.append("fresh")
+        
+    # 6. OCR Consistency (Max 10)
+    overlap_log = "N/A"
+    if ocr_ingredients and product.get('ingredients_text'):
+        off_text = product.get('ingredients_text', '').lower()
+        match_count = 0
+        for ing in ocr_ingredients:
+            if ing.lower() in off_text:
+                match_count += 1
+        
+        overlap_score = match_count / len(ocr_ingredients) if len(ocr_ingredients) > 0 else 0
+        added_points = overlap_score * 10
+        score += added_points
+        overlap_log = f"{overlap_score:.2f}"
+    
+    return {
+        "score": round(score, 1), 
+        "id": product.get('_id', 'unknown'),
+        "name": product.get('product_name', 'unknown'),
+        "breakdown": breakdown,
+        "overlap": overlap_log
+    }
+
+def select_best_candidate(products: List[Dict], ocr_ingredients: List[str] = None) -> Optional[Dict]:
+    if not products:
+        return None
+        
+    ranked = []
+    print(f"\n--- Ranking {len(products)} Candidates ---")
+    
+    for p in products:
+        qs = calculate_quality_score(p, ocr_ingredients)
+        ranked.append((qs['score'], p))
+        print(f"Candidate {qs['id']} ({qs['name']}) | Score: {qs['score']} | Overlap: {qs['overlap']} | details: {qs['breakdown']}")
+        
+    # Sort descending by score
+    ranked.sort(key=lambda x: x[0], reverse=True)
+    
+    best_score, best_product = ranked[0]
+    print(f"SELECTED: {best_product.get('_id')} ({best_product.get('product_name')}) with Score: {best_score}\n")
+    
+    return best_product
 
 # Parse ingredients text and extract percentages
 def parse_ingredients(ingredients_text: str) -> List[Ingredient]:
@@ -384,12 +488,27 @@ async def analyze_product(barcode: str, user_id: Optional[str] = None):
 # Endpoint for product search by name
 @app.get("/search-product/{product_name}")
 async def search_product(product_name: str):
-    url = f"https://world.openfoodfacts.org/cgi/search.pl?search_terms={product_name}&search_simple=1&json=1"
+    url = f"https://world.openfoodfacts.org/cgi/search.pl?search_terms={product_name}&search_simple=1&action=process&json=1"
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            return data.get('products', [])[:10]  # Return top 10 results
+            products = data.get('products', [])
+            if not products:
+                return []
+                
+            # Use calculate_quality_score to sort the products
+            ranked = []
+            for p in products:
+                qs = calculate_quality_score(p)
+                ranked.append((qs['score'], p))
+            
+            # Sort descending
+            ranked.sort(key=lambda x: x[0], reverse=True)
+            
+            # Return top 10 products
+            return [r[1] for r in ranked[:10]]
+            
         return []
     except Exception:
         return []
