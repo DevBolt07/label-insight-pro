@@ -3,11 +3,12 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 import { ProductCard } from "@/components/ui/product-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { FileText, Scan, Shield, Heart, Sparkles, Settings, TrendingUp, Loader2, Camera } from "lucide-react";
+import { FileText, Scan, Shield, Heart, Sparkles, Settings, TrendingUp, Loader2, Camera, Lightbulb, CheckCircle, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import { scanHistoryService } from "@/services/scanHistoryService";
 import { recommendationService, SmartRecommendation } from "@/services/recommendationService";
+import { profileService } from "@/services/profileService";
 import { useToast } from "@/hooks/use-toast";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { OCRScanner } from "@/components/ocr-scanner";
@@ -31,6 +32,7 @@ export function Home({ onNavigate, user }: HomeProps) {
   });
   const [recentScans, setRecentScans] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<SmartRecommendation[]>([]);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingRecs, setIsLoadingRecs] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -41,7 +43,17 @@ export function Home({ onNavigate, user }: HomeProps) {
   useEffect(() => {
     loadRecentScans();
     loadRecommendations();
+    loadUserProfile();
   }, [user.id]);
+
+  const loadUserProfile = async () => {
+    try {
+      const profile = await profileService.getProfile(user.id);
+      setUserProfile(profile);
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    }
+  };
 
   const loadRecentScans = async () => {
     try {
@@ -86,7 +98,7 @@ export function Home({ onNavigate, user }: HomeProps) {
 
     try {
       const productData = await openFoodFactsService.getProductByBarcode(result.code);
-      
+
       if (productData) {
         const savedProduct = await productService.createOrUpdateProduct({
           barcode: result.code,
@@ -162,16 +174,16 @@ export function Home({ onNavigate, user }: HomeProps) {
     {
       id: "ocr",
       icon: FileText,
-      title: t("nutrition_ocr"),
-      description: t("nutrition_ocr_desc"),
+      title: t("Nutrition OCR"),
+      description: t("Scan nutrition labels using OCR"),
       gradient: "bg-gradient-primary",
       onClick: handleOCRScan
     },
     {
       id: "barcode",
       icon: Scan,
-      title: t("scan_barcode"),
-      description: t("scan_barcode_desc"),
+      title: t("Scan Barcode"),
+      description: t("Scan barcode to get product information"),
       gradient: "bg-gradient-warning",
       onClick: handleBarcodeScan
     }
@@ -217,31 +229,47 @@ export function Home({ onNavigate, user }: HomeProps) {
     }
   };
 
+  // Tip of the Day Logic
+  const tipOfTheDay = (() => {
+    const tips = [
+      "Replacing one sugary drink a day can reduce diabetes risk by 10%.",
+      "Fiber-rich foods help maintain steady blood sugar levels.",
+      "Whole grains provide more sustained energy than refined grains.",
+      "Check sodium levels even in sweet foods like cereals and pastries.",
+      "Protein helps you feel full longer and supports muscle repair.",
+      "Healthy fats from nuts and avocados are good for heart health.",
+      "Drinking water before meals can help with portion control."
+    ];
+    // Use day of year to select a tip
+    const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 1000 / 60 / 60 / 24);
+    return tips[dayOfYear % tips.length];
+  })();
+
   if (isScanning) {
     return (
       <div className="min-h-screen bg-background pb-20">
-        <MobileHeader 
+        <MobileHeader
           title="Scanning..."
           showBack
           onBack={() => {
             setIsScanning(false);
           }}
         />
-        
+
         <div className="px-4 py-12 max-w-md mx-auto">
           <Card className="card-material">
             <div className="p-8 text-center space-y-6">
               <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center animate-pulse">
                 <Loader2 className="h-8 w-8 text-white animate-spin" />
               </div>
-              
+
               <div className="space-y-2">
                 <h3 className="text-headline-medium text-foreground">Analyzing Product</h3>
                 <p className="text-body-large text-muted-foreground">
                   Our AI is processing the nutrition label and checking for health alerts...
                 </p>
               </div>
-              
+
               <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center justify-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
@@ -265,13 +293,13 @@ export function Home({ onNavigate, user }: HomeProps) {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <MobileHeader 
-        title="Label Insight Pro"
+      <MobileHeader
+        title="Nutri-Sense"
         subtitle="AI-Powered Food Safety"
         rightAction={
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="h-10 w-10 p-0 rounded-full"
             onClick={() => onNavigate("profile")}
           >
@@ -291,14 +319,31 @@ export function Home({ onNavigate, user }: HomeProps) {
           </p>
         </div>
 
+        {/* Tip of the Day */}
+        <section className="animate-fade-in animate-stagger-1">
+          <Card className="card-material p-4 bg-yellow-50/50 dark:bg-yellow-900/10 border-yellow-200/50 dark:border-yellow-800/30">
+            <div className="flex gap-3 items-start">
+              <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-full shrink-0">
+                <Lightbulb className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-foreground mb-1">Did You Know?</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {tipOfTheDay}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </section>
+
         {/* Quick Actions */}
-        <div className="space-y-4 animate-slide-up animate-stagger-1">
+        <div className="space-y-4 animate-slide-up animate-stagger-2">
           <h3 className="text-title-large text-foreground font-semibold px-2">Quick Scan</h3>
           <div className="grid gap-4">
             {quickActions.map((action, index) => {
               const Icon = action.icon;
               return (
-                <Card 
+                <Card
                   key={action.id}
                   className={cn(
                     "card-material cursor-pointer group animate-scale-in",
@@ -324,8 +369,49 @@ export function Home({ onNavigate, user }: HomeProps) {
           </div>
         </div>
 
+        {/* Safety Shield */}
+        <section className="animate-slide-up animate-stagger-3">
+          <div className="flex items-center gap-2 mb-3 px-2">
+            <Shield className="h-5 w-5 text-primary" />
+            <h3 className="text-title-large text-foreground font-semibold">Safety Shield</h3>
+          </div>
+          <Card className="card-material p-5">
+            {userProfile && (userProfile.allergies?.length > 0 || userProfile.health_conditions?.length > 0) ? (
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
+                  <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-500" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-foreground">Protections Active</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Monitoring {userProfile.allergies?.length || 0} allergies & {userProfile.health_conditions?.length || 0} conditions
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onNavigate("profile")}>
+                  Edit
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <AlertTriangle className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-foreground">Shield Inactive</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Set up your profile to enable safety alerts
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" className="ml-auto" onClick={() => onNavigate("profile")}>
+                  Setup
+                </Button>
+              </div>
+            )}
+          </Card>
+        </section>
+
         {/* Smart Recommendations */}
-        <div className="space-y-4 animate-slide-up animate-stagger-2">
+        <div className="space-y-4 animate-slide-up animate-stagger-4">
           <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary animate-pulse-glow" />
@@ -333,7 +419,7 @@ export function Home({ onNavigate, user }: HomeProps) {
             </div>
             <TrendingUp className="h-5 w-5 text-primary" />
           </div>
-          
+
           {isLoadingRecs ? (
             <Card className="card-material">
               <div className="p-8 text-center space-y-3">
@@ -407,8 +493,8 @@ export function Home({ onNavigate, user }: HomeProps) {
         <div className="space-y-4 animate-slide-up animate-stagger-4">
           <div className="flex items-center justify-between px-2">
             <h3 className="text-title-large text-foreground font-semibold">Recent Scans</h3>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               onClick={() => onNavigate("history")}
               className="text-primary hover:text-primary/80 transition-colors"
@@ -416,7 +502,7 @@ export function Home({ onNavigate, user }: HomeProps) {
               View All
             </Button>
           </div>
-          
+
           {isLoading ? (
             <Card className="card-material">
               <div className="p-8 text-center space-y-3">

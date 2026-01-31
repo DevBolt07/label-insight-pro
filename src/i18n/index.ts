@@ -1,6 +1,6 @@
 const translations: Record<string, Record<string, string>> = {
   en: {
-    'home.title': 'Label Insight Pro',
+    'home.title': 'Nutri-Sense',
     'home.subtitle': 'Scan food labels to understand what you eat',
     'scanner.title': 'Scanner',
     'scanner.searchPlaceholder': 'Search products...',
@@ -17,7 +17,7 @@ const translations: Record<string, Record<string, string>> = {
     'common.cancel': 'Cancel',
   },
   es: {
-    'home.title': 'Label Insight Pro',
+    'home.title': 'Nutri-Sense',
     'home.subtitle': 'Escanea etiquetas de alimentos para entender lo que comes',
     'scanner.title': 'Escáner',
     'scanner.searchPlaceholder': 'Buscar productos...',
@@ -34,7 +34,7 @@ const translations: Record<string, Record<string, string>> = {
     'common.cancel': 'Cancelar',
   },
   fr: {
-    'home.title': 'Label Insight Pro',
+    'home.title': 'Nutri-Sense',
     'home.subtitle': 'Scannez les étiquettes alimentaires pour comprendre ce que vous mangez',
     'scanner.title': 'Scanner',
     'scanner.searchPlaceholder': 'Rechercher des produits...',
