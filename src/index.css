@@ -1,0 +1,524 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* NutriScanner - Enhanced Attractive Blue Design System
+   Premium Blue Color Palette with Modern Gradients
+*/
+
+@layer base {
+  :root {
+    /* Bottom nav dimensions - Enhanced for better visibility */
+    --bottom-nav-height: 5rem;
+    --bottom-nav-safe: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 1rem));
+
+    /* Color Palette Built Around Your Teal-Blue Background */
+    --background: 187 75% 86%;          /* Your teal-blue background */
+    --foreground: 192 85% 12%;        /* Deep teal for text */
+
+    --card: 0 0% 100%;               /* Pure white cards for maximum contrast */
+    --card-foreground: 192 85% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 192 85% 12%;
+
+    /* Primary - Complementary Blue */
+    --primary: 198 88% 48%;         /* Bright ocean blue */
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 198 88% 92%;
+    --primary-dark: 198 88% 38%;
+    --primary-glow: 198 88% 58%;
+
+    /* Secondary - Muted Teal */
+    --secondary: 187 75% 76%;        /* Lighter version of background */
+    --secondary-foreground: 192 85% 12%;
+    --secondary-light: 187 75% 82%;
+    --secondary-dark: 187 75% 70%;
+
+    /* Accent - Coral for contrast */
+    --accent: 12 86% 61%;           /* Warm coral accent */
+    --accent-foreground: 0 0% 100%;
+    --accent-light: 12 86% 92%;
+    --accent-dark: 12 86% 51%;
+
+    /* Neutral - Adapted to teal background */
+    --muted: 187 75% 80%;           /* Slightly lighter than background */
+    --muted-foreground: 192 85% 25%; /* Medium teal text */
+
+    /* Status Colors - Complementary to teal */
+    --healthy: 152 76% 42%;         /* Emerald green */
+    --healthy-foreground: 0 0% 100%;
+    --healthy-light: 152 76% 92%;
+    
+    --warning: 38 92% 55%;          /* Golden amber */
+    --warning-foreground: 192 85% 12%;
+    --warning-light: 38 92% 92%;
+    
+    --danger: 0 84% 58%;            /* Coral red */
+    --danger-foreground: 0 0% 100%;
+    --danger-light: 0 84% 92%;
+
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* UI Elements */
+    --border: 187 75% 70%;          /* Visible teal borders */
+    --input: 187 75% 92%;
+    --ring: 198 88% 48%;           /* Primary blue focus ring */
+
+    /* Enhanced Border Radius */
+    --radius: 12px;                 /* Slightly rounded for soft look */
+
+    /* Teal-inspired Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(198 88% 48%), hsl(198 88% 38%));
+    --gradient-primary-light: linear-gradient(135deg, hsl(198 88% 92%), hsl(198 88% 88%));
+    --gradient-primary-glow: linear-gradient(135deg, hsl(198 88% 58%), hsl(198 88% 48%));
+    
+    --gradient-secondary: linear-gradient(135deg, hsl(187 75% 76%), hsl(187 75% 70%));
+    --gradient-accent: linear-gradient(135deg, hsl(12 86% 61%), hsl(12 86% 51%));
+    
+    --gradient-healthy: linear-gradient(135deg, hsl(152 76% 42%), hsl(152 76% 32%));
+    --gradient-warning: linear-gradient(135deg, hsl(38 92% 55%), hsl(38 92% 45%));
+    --gradient-danger: linear-gradient(135deg, hsl(0 84% 58%), hsl(0 84% 48%));
+    
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(0 0% 98%));
+    --gradient-background: linear-gradient(135deg, hsl(187 75% 86%), hsl(187 75% 82%));
+    --gradient-glass: linear-gradient(135deg, hsl(0 0% 100% / 0.95), hsl(187 75% 96% / 0.9));
+    
+    /* Bottom Nav Specific Gradients */
+    --gradient-nav: linear-gradient(135deg, hsl(0 0% 100% / 0.95), hsl(187 75% 92% / 0.9));
+    --gradient-nav-dark: linear-gradient(135deg, hsl(192 85% 12% / 0.95), hsl(192 85% 8% / 0.9));
+
+    /* Soft Shadows with Teal Undertones */
+    --shadow-sm: 0 1px 3px 0 hsl(187 75% 20% / 0.1);
+    --shadow-md: 0 4px 6px -1px hsl(187 75% 20% / 0.15), 0 2px 4px -1px hsl(187 75% 20% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(187 75% 20% / 0.15), 0 4px 6px -2px hsl(187 75% 20% / 0.1);
+    --shadow-xl: 0 20px 25px -5px hsl(187 75% 20% / 0.15), 0 10px 10px -5px hsl(187 75% 20% / 0.1);
+    --shadow-glow: 0 0 20px 0 hsl(198 88% 48% / 0.2);
+    --shadow-nav: 0 -4px 20px -5px hsl(187 75% 20% / 0.15), 0 -2px 10px -5px hsl(187 75% 20% / 0.1);
+
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  .dark {
+    /* Dark mode that complements the teal theme */
+    --background: 192 85% 8%;
+    --foreground: 187 75% 90%;
+
+    --card: 192 85% 12%;
+    --card-foreground: 187 75% 90%;
+
+    --popover: 192 85% 12%;
+    --popover-foreground: 187 75% 90%;
+
+    --primary: 198 88% 55%;
+    --primary-foreground: 192 85% 8%;
+    --primary-light: 198 88% 20%;
+    --primary-dark: 198 88% 45%;
+    --primary-glow: 198 88% 50%;
+
+    --secondary: 192 85% 18%;
+    --secondary-foreground: 187 75% 90%;
+    --secondary-light: 192 85% 22%;
+    --secondary-dark: 192 85% 14%;
+
+    --accent: 12 86% 65%;
+    --accent-foreground: 192 85% 8%;
+    --accent-light: 12 86% 20%;
+    --accent-dark: 12 86% 55%;
+
+    --muted: 192 85% 18%;
+    --muted-foreground: 187 75% 70%;
+
+    --healthy: 152 76% 55%;
+    --healthy-foreground: 192 85% 8%;
+    --healthy-light: 152 76% 20%;
+    
+    --warning: 38 92% 65%;
+    --warning-foreground: 192 85% 8%;
+    --warning-light: 38 92% 20%;
+    
+    --danger: 0 84% 65%;
+    --danger-foreground: 192 85% 8%;
+    --danger-light: 0 84% 20%;
+
+    --border: 192 85% 22%;
+    --input: 192 85% 22%;
+    --ring: 198 88% 55%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(198 88% 55%), hsl(198 88% 45%));
+    --gradient-card: linear-gradient(145deg, hsl(192 85% 12%), hsl(192 85% 10%));
+    --gradient-background: linear-gradient(135deg, hsl(192 85% 8%), hsl(192 85% 6%));
+  }
+  .high-contrast {
+    /* Strong high contrast overrides */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 100%;
+    --primary: 220 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 100%;
+    --border: 0 0% 30%;
+    --ring: 220 100% 50%;
+  }
+}
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--gradient-background);
+  }
+
+  /* Safe area insets for modern mobile devices */
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mobile-viewport {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* Add this to your existing safe area section in index.css */
+html {
+  height: -webkit-fill-available;
+}
+
+/* Ensure body takes full height */
+body {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Fix for mobile viewport */
+.mobile-viewport {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* Safe area handling */
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* Main content padding for footer space */
+.main-content-padding {
+  padding-bottom: 6rem; /* 96px - enough for footer + safe area */
+}
+
+/* Mobile-specific footer spacing */
+@media (max-width: 768px) {
+  .main-content-padding {
+    padding-bottom: 7rem; /* Slightly more on mobile */
+  }
+}
+
+  /* Elegant shadow for elevated elements */
+  .shadow-elegant {
+    box-shadow: 0 4px 20px -4px hsl(var(--primary) / 0.15), 0 2px 8px -2px hsl(0 0% 0% / 0.1);
+  }
+
+  /* Enhanced Nav Items */
+  .nav-item {
+    @apply flex flex-col items-center justify-center px-4 py-3 rounded-2xl transition-all duration-300 ease-out;
+  }
+
+  .nav-item.active {
+    background: var(--gradient-primary);
+    @apply text-white shadow-lg scale-105;
+  }
+
+  .nav-item:not(.active):hover {
+    background: hsl(var(--primary-light));
+    @apply scale-110;
+  }
+
+  .nav-icon {
+    @apply w-6 h-6 mb-1 transition-all duration-300;
+  }
+
+  .nav-item.active .nav-icon {
+    @apply scale-110;
+  }
+
+  .nav-label {
+    @apply text-xs font-semibold transition-all duration-300;
+  }
+
+  .nav-item.active .nav-label {
+    @apply font-bold;
+  }
+
+  /* Premium Shadow Effects */
+  .shadow-premium {
+    box-shadow: var(--shadow-xl);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .shadow-blue-glow {
+    box-shadow: 0 0 30px 5px hsl(var(--primary) / 0.2);
+  }
+
+  /* Enhanced Material Design Typography with Blue Theme */
+  .text-display-large {
+    @apply text-5xl font-light tracking-tight;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .text-headline-large {
+    @apply text-4xl font-light tracking-tight text-foreground;
+  }
+  
+  .text-headline-medium {
+    @apply text-3xl font-normal tracking-tight text-foreground;
+  }
+  
+  .text-title-large {
+    @apply text-2xl font-medium tracking-tight text-foreground;
+  }
+  
+  .text-body-large {
+    @apply text-lg font-normal leading-relaxed text-foreground/90;
+  }
+  
+  .text-label-large {
+    @apply text-base font-semibold tracking-wide text-foreground/80;
+  }
+
+  /* Enhanced Animations */
+  .animate-ripple {
+    animation: ripple 0.6s ease-out;
+  }
+  
+  .animate-bounce-gentle {
+    animation: bounce-gentle 0.6s ease-out;
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.6s ease-out;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.15), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 3s infinite;
+  }
+
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { 
+      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); 
+    }
+    50% { 
+      box-shadow: 0 0 30px 10px hsl(var(--primary) / 0.3); 
+    }
+  }
+
+  /* Premium Interactive Effects */
+  .hover-lift {
+    transition: var(--transition-smooth);
+  }
+  .hover-lift:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .hover-glow:hover {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .hover-scale {
+    transition: var(--transition-smooth);
+  }
+  .hover-scale:hover {
+    transform: scale(1.08);
+  }
+
+  /* Enhanced Glassmorphism */
+  .glass-card {
+    background: var(--gradient-glass);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid hsl(var(--border) / 0.3);
+    box-shadow: var(--shadow-md);
+  }
+
+  .glass-premium {
+    background: hsl(var(--background) / 0.7);
+    -webkit-backdrop-filter: blur(20px) saturate(200%);
+    backdrop-filter: blur(20px) saturate(200%);
+    border: 1px solid hsl(var(--primary) / 0.2);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Enhanced Material Design Cards */
+  .card-material {
+    background: var(--gradient-card);
+    box-shadow: var(--shadow-md);
+    @apply rounded-2xl border border-border/50 transition-all duration-300 ease-out;
+  }
+  
+  .card-material:hover {
+    box-shadow: var(--shadow-xl);
+    transform: translateY(-4px);
+  }
+
+  .card-premium {
+    @apply rounded-3xl overflow-hidden bg-card border border-border/30 shadow-premium transition-all duration-500 ease-out;
+    background: var(--gradient-card);
+  }
+  
+  .card-premium:hover {
+    @apply shadow-glow -translate-y-2;
+    transform: translateY(-8px) scale(1.02);
+  }
+
+  .card-product {
+    @apply rounded-3xl overflow-hidden bg-card border border-border/40 shadow-lg transition-all duration-300 ease-out;
+    background: var(--gradient-card);
+  }
+
+  .card-product:hover {
+    @apply shadow-xl -translate-y-3;
+    border-color: hsl(var(--primary) / 0.3);
+  }
+
+  /* Enhanced Status Indicators */
+  .status-healthy {
+    background: var(--gradient-healthy);
+    @apply text-white shadow-lg;
+  }
+  
+  .status-warning {
+    background: var(--gradient-warning);
+    @apply text-white shadow-lg;
+  }
+  
+  .status-danger {
+    background: var(--gradient-danger);
+    @apply text-white shadow-lg;
+  }
+
+  /* Blue Gradient Buttons */
+  .btn-primary {
+    background: var(--gradient-primary);
+    @apply text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95;
+  }
+
+  .btn-secondary {
+    background: var(--gradient-secondary);
+    @apply text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95;
+  }
+
+  .btn-accent {
+    background: var(--gradient-accent);
+    @apply text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 active:scale-95;
+  }
+
+  /* Blue Background Elements */
+  .bg-premium-blue {
+    background: var(--gradient-primary);
+  }
+
+  .bg-soft-blue {
+    background: hsl(var(--primary-light));
+  }
+
+  .bg-gradient-blue {
+    background: linear-gradient(135deg, hsl(var(--primary-light)), hsl(var(--primary) / 0.3));
+  }
+
+  /* Text Gradients */
+  .text-gradient-primary {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-secondary {
+    background: var(--gradient-secondary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Border Gradients */
+  .border-gradient-primary {
+    border: 2px solid transparent;
+    background: linear-gradient(var(--card), var(--card)) padding-box,
+                var(--gradient-primary) border-box;
+  }
+
+  /* Loading Spinner */
+  .spinner-blue {
+    border: 3px solid hsl(var(--primary-light));
+    border-top: 3px solid hsl(var(--primary));
+    @apply animate-spin rounded-full;
+  }
+}
+
+/* Custom scrollbar with blue theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gradient-primary);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary-dark));
+}
+
+/* Selection color */
+::selection {
+  background: hsl(var(--primary) / 0.3);
+  color: hsl(var(--foreground));
+}
+
+::-moz-selection {
+  background: hsl(var(--primary) / 0.3);
+  color: hsl(var(--foreground));
+}
