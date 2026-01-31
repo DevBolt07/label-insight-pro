@@ -26,6 +26,14 @@ export interface HealthAnalysis {
   recommendations: string[];
 }
 
+export interface OCRScore {
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'E';
+  explanation: string;
+  breakdown: Array<{ label: string; points: string; type: 'positive' | 'negative' }>;
+  confidence_note?: string;
+}
+
 export interface OCRResult {
   text: string;
   confidence: number;
@@ -38,6 +46,9 @@ export interface OCRResult {
   rawText?: string;
   structuredText?: string;
   ocrSource?: string;
+  ocrScore?: OCRScore;
+  inferredName?: string;
+  isEnriched?: boolean;
 }
 
 class OCRService {
@@ -80,9 +91,9 @@ class OCRService {
           arr.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index
       );
 
-      // Calculate a basic health score based on findings
-      const healthScore = this.calculateHealthScore(ingredients, nutritionData);
-      const grade = this.getGradeFromScore(healthScore);
+      // Prioritize the LLM's tailored OCR score if available
+      const healthScore = data.ocr_score?.score || this.calculateHealthScore(ingredients, nutritionData);
+      const grade = data.ocr_score?.grade || this.getGradeFromScore(healthScore);
 
       return {
         text: data.raw_text || '',
@@ -106,7 +117,10 @@ class OCRService {
         },
         rawText: data.raw_text,
         structuredText: data.meta?.structured_text,
-        ocrSource: data.meta?.ocr_source || 'Unknown'
+        ocrSource: data.meta?.ocr_source || 'Unknown',
+        ocrScore: data.ocr_score,
+        inferredName: data.meta?.inferred_name,
+        isEnriched: data.meta?.is_enriched
       };
     } catch (error) {
       console.error('OCR processing error:', error);
@@ -119,20 +133,26 @@ class OCRService {
     if (!facts) return {};
 
     // Helper to safely parse numbers
+    // UPDATED: Return undefined if invalid/missing, do not force 0 (PART A requirement)
     const parseVal = (val: any) => {
+      if (val === null || val === undefined || val === '') return undefined;
       if (typeof val === 'number') return val;
-      if (typeof val === 'string') return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
+      if (typeof val === 'string') {
+        const clean = val.replace(/[^0-9.]/g, '');
+        if (clean === '') return undefined;
+        return parseFloat(clean);
+      }
       return undefined;
     };
 
     return {
-      calories: parseVal(facts.calories || facts.Energy || facts.energy),
+      calories: parseVal(facts.calories || facts.Energy || facts.energy || facts.energy_kcal),
       protein: parseVal(facts.protein || facts.Protein),
-      carbohydrates: parseVal(facts.carbohydrates || facts.Carbs || facts.total_carbohydrate),
+      carbohydrates: parseVal(facts.carbohydrates || facts.Carbs || facts.total_carbohydrate || facts.carbohydrate),
       fat: parseVal(facts.fat || facts.Fat || facts.total_fat),
       sugar: parseVal(facts.sugar || facts.Sugars || facts.sugars),
-      sodium: parseVal(facts.sodium || facts.Sodium),
-      fiber: parseVal(facts.fiber || facts.Fiber)
+      sodium: parseVal(facts.sodium || facts.Sodium || facts.sodium_mg),
+      fiber: parseVal(facts.fiber || facts.Fiber || facts.dietary_fiber)
     };
   }
 

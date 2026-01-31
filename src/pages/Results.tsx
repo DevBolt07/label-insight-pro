@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye, MessageCircle, Sparkles, Package, MapPin, Factory, Info, Leaf, Calendar, Globe, Droplet, Flame, Zap, HelpCircle, Calculator, ChevronRight, ChevronDown } from "lucide-react";
+import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye, MessageCircle, Sparkles, Package, MapPin, Factory, Info, Leaf, Calendar, Globe, Droplet, Flame, Zap, HelpCircle, Calculator, ChevronRight, ChevronDown, Award, Search, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductData } from "@/services/openFoodFacts";
 import { OCRResult } from "@/services/ocrService";
@@ -754,11 +754,66 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
             {/* Visual OCR Result Display */}
             {isOCRResult && (
               <div className="mt-8 space-y-4 animate-fade-in">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="secondary" className="bg-muted text-muted-foreground hover:bg-muted">
-                    Derived from OCR (not barcode)
-                  </Badge>
+
+                {/* Header with Badges */}
+                <div className="flex flex-col gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="bg-muted text-muted-foreground hover:bg-muted w-fit">
+                      Derived from OCR (not barcode)
+                    </Badge>
+                    {ocrResult?.isEnriched && (
+                      <Badge variant="secondary" className="bg-blue-100/50 text-blue-700 border-blue-200 w-fit gap-1">
+                        <Database className="h-3 w-3" /> Enriched with OpenFoodFacts
+                      </Badge>
+                    )}
+                  </div>
+
+                  {ocrResult?.inferredName && (
+                    <div className="flex items-center gap-2 px-1">
+                      <Search className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-sm font-medium text-foreground">Inferred: "{ocrResult.inferredName}"</span>
+                    </div>
+                  )}
                 </div>
+
+                {/* OCR Health Score Card (Part J) */}
+                {ocrResult?.ocrScore && (
+                  <Card className="card-material p-5 border-l-4 border-l-indigo-500 bg-indigo-50/10">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2 mb-2 text-indigo-700 dark:text-indigo-400">
+                        <Award className="h-5 w-5" />
+                        <h3 className="text-lg font-semibold">OCR Health Score</h3>
+                      </div>
+                      <Badge className={cn("text-lg px-3 py-1",
+                        ocrResult.ocrScore.score > 70 ? "bg-green-100 text-green-700" :
+                          ocrResult.ocrScore.score > 40 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+                      )}>
+                        {ocrResult.ocrScore.score}/100
+                      </Badge>
+                    </div>
+
+                    <p className="text-sm font-medium mt-1 mb-3 leading-snug">
+                      {ocrResult.ocrScore.explanation}
+                    </p>
+
+                    <div className="space-y-2 mt-3 pt-3 border-t border-indigo-200/50">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Parameters</span>
+                      {ocrResult.ocrScore.breakdown.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">{item.label}</span>
+                          <span className={cn("font-mono font-medium", item.type === 'positive' ? "text-green-600" : "text-red-500")}>
+                            {item.points}
+                          </span>
+                        </div>
+                      ))}
+                      {ocrResult.ocrScore.confidence_note && (
+                        <p className="text-[10px] text-muted-foreground italic mt-2 opacity-80">
+                          Note: {ocrResult.ocrScore.confidence_note}
+                        </p>
+                      )}
+                    </div>
+                  </Card>
+                )}
 
                 {/* OCR Nutrition Card */}
                 <Card className="card-material p-5">
@@ -775,17 +830,28 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                       { l: 'Sugars', v: ocrResult?.nutritionData?.sugar, u: 'g' },
                       { l: 'Fiber', v: ocrResult?.nutritionData?.fiber, u: 'g' },
                       { l: 'Protein', v: ocrResult?.nutritionData?.protein, u: 'g' },
-                      { l: 'Sodium', v: ocrResult?.nutritionData?.sodium, u: 'g' },
+                      { l: 'Sodium', v: ocrResult?.nutritionData?.sodium, u: 'mg' },
                     ].map((item, i) => (
-                      <div key={i} className="flex justify-between p-3 bg-card hover:bg-muted/50 transition-colors">
-                        <span className="text-muted-foreground flex items-center gap-2">
-                          {item.i && item.i} {item.l}
-                        </span>
-                        <span className="font-medium text-foreground">
-                          {item.v !== undefined ? `${item.v}${item.u}` : '-'}
-                        </span>
-                      </div>
+                      item.v !== undefined ? (
+                        <div key={i} className="flex justify-between p-3 bg-card hover:bg-muted/50 transition-colors">
+                          <span className="text-muted-foreground flex items-center gap-2">
+                            {item.i && item.i} {item.l}
+                          </span>
+                          <span className="font-medium text-foreground">
+                            {item.v}{item.u}
+                          </span>
+                        </div>
+                      ) : null
                     ))}
+                    {/* Fallback if all empty - Part D */}
+                    {[
+                      ocrResult?.nutritionData?.calories, ocrResult?.nutritionData?.fat, ocrResult?.nutritionData?.carbohydrates,
+                      ocrResult?.nutritionData?.sugar, ocrResult?.nutritionData?.fiber, ocrResult?.nutritionData?.protein, ocrResult?.nutritionData?.sodium
+                    ].every(v => v === undefined) && (
+                        <div className="p-4 text-center text-muted-foreground text-xs italic">
+                          No nutrition values detected. Score is based on ingredients only.
+                        </div>
+                      )}
                   </div>
                 </Card>
 

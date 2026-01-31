@@ -5,28 +5,36 @@ import { Leaf, Car, Plane, Home, AlertTriangle, Package } from "lucide-react";
 import { ProductData } from "@/services/openFoodFacts";
 
 interface CarbonFootprintCardProps {
-  productData: ProductData;
+  productData?: ProductData | null;
   className?: string;
 }
 
 export function CarbonFootprintCard({ productData, className }: CarbonFootprintCardProps) {
-  const carbonFootprint = productData.carbonFootprint;
-  
-  if (!carbonFootprint) {
-    return null;
+  const carbonFootprint = productData?.carbonFootprint;
+
+  if (carbonFootprint === undefined || carbonFootprint === null) {
+    return (
+      <Card className={cn("card-material p-6 flex flex-col items-center justify-center text-center space-y-2 opacity-75", className)}>
+        <div className="p-2 bg-muted/50 rounded-full mb-1">
+          <Leaf className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <h3 className="font-semibold text-sm text-muted-foreground">Carbon Data Unavailable</h3>
+        <p className="text-xs text-muted-foreground">Environmental impact details could not be found.</p>
+      </Card>
+    );
   }
 
   // Calculate relatable comparisons
   const getComparisons = (co2Grams: number) => {
     // Car travel: average 120g CO2/km
     const carKm = (co2Grams / 120).toFixed(1);
-    
+
     // Smartphone charging: ~8g CO2 per full charge
     const phoneCharges = Math.round(co2Grams / 8);
-    
+
     // LED bulb: ~10g CO2 per hour
     const ledHours = Math.round(co2Grams / 10);
-    
+
     return { carKm, phoneCharges, ledHours };
   };
 
@@ -42,13 +50,13 @@ export function CarbonFootprintCard({ productData, className }: CarbonFootprintC
   const impact = getImpactLevel(carbonFootprint);
 
   // Assess packaging impact (from product data if available)
-  const packagingMaterials = productData.packaging?.toLowerCase() || '';
+  const packagingMaterials = productData?.packaging?.toLowerCase() || '';
   const hasPlastic = packagingMaterials.includes('plastic');
   const hasRecyclable = packagingMaterials.includes('recyclable') || packagingMaterials.includes('cardboard');
-  
+
   const packagingImpact = hasPlastic && !hasRecyclable ? 'High-impact packaging' :
-                          hasPlastic && hasRecyclable ? 'Mixed-impact packaging' :
-                          hasRecyclable ? 'Low-impact packaging' : 'Unknown packaging impact';
+    hasPlastic && hasRecyclable ? 'Mixed-impact packaging' :
+      hasRecyclable ? 'Low-impact packaging' : 'Unknown packaging impact';
 
   return (
     <Card className={cn("card-material p-6 space-y-6", className)}>
@@ -61,7 +69,7 @@ export function CarbonFootprintCard({ productData, className }: CarbonFootprintC
           </div>
           <p className="text-sm text-muted-foreground">Environmental impact per 100g</p>
         </div>
-        <Badge 
+        <Badge
           variant="secondary"
           className={cn(
             "font-semibold",
@@ -86,7 +94,7 @@ export function CarbonFootprintCard({ productData, className }: CarbonFootprintC
       {/* Relatable Comparisons */}
       <div className="space-y-3">
         <h4 className="font-semibold text-foreground text-sm">This is equivalent to:</h4>
-        
+
         <div className="grid gap-3">
           <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
             <div className="p-2 bg-background rounded-lg">
@@ -121,13 +129,13 @@ export function CarbonFootprintCard({ productData, className }: CarbonFootprintC
       </div>
 
       {/* Packaging Impact */}
-      {productData.packaging && (
+      {productData?.packaging && (
         <div className="pt-4 border-t border-border space-y-3">
           <div className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
             <h4 className="font-semibold text-foreground text-sm">Packaging</h4>
           </div>
-          
+
           <div className={cn(
             "p-3 rounded-lg border",
             hasPlastic && !hasRecyclable && "bg-danger/5 border-danger/20",
@@ -135,7 +143,7 @@ export function CarbonFootprintCard({ productData, className }: CarbonFootprintC
             !hasPlastic && !hasRecyclable && "bg-muted/30 border-border"
           )}>
             <p className="text-sm font-medium text-foreground mb-1">{packagingImpact}</p>
-            <p className="text-xs text-muted-foreground capitalize">{productData.packaging}</p>
+            <p className="text-xs text-muted-foreground capitalize">{productData?.packaging}</p>
           </div>
 
           {hasPlastic && (

@@ -20,6 +20,8 @@ interface ProcessedOCR {
   raw_text: string;
 }
 
+const OPEN_FOOD_FACTS_API_URL = "https://world.openfoodfacts.org/cgi/search.pl";
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -40,12 +42,10 @@ serve(async (req) => {
       imageBase64 = `data:image/jpeg;base64,${imageBase64}`;
     }
 
-    // Clean base64 for APIs
     const base64Clean = imageBase64.split(',')[1] || imageBase64;
 
     // --- 2. PERFORM DUAL-ENGINE OCR ---
     let ocrResult: ProcessedOCR;
-
     try {
       console.log("Attempting Primary OCR (PaddleOCR)...");
       ocrResult = await callPaddleOCR(base64Clean);
@@ -53,7 +53,6 @@ serve(async (req) => {
     } catch (paddleError) {
       console.error("PaddleOCR failed or unreachable:", paddleError);
       console.log("Falling back to OCR.space...");
-
       try {
         ocrResult = await callOCRSpace(base64Clean);
         console.log(`OCR.space Success! Source: ${ocrResult.source}, Lines: ${ocrResult.lines.length}`);
@@ -63,8 +62,21 @@ serve(async (req) => {
       }
     }
 
-    // --- 3. PREPARE LLM PAYLOAD ---
-    // If we have proper rows, we format them nicely
+    // --- 3. PRODUCT NAME INFERENCE & OFF ENRICHMENT ---
+    const inferredName = inferProductName(ocrResult.lines);
+    let offData = null;
+
+    if (inferredName) {
+      console.log(`Inferred Product Name: "${inferredName}". Querying Open Food Facts...`);
+      try {
+        offData = await fetchOpenFoodFactsData(inferredName);
+        if (offData) console.log("Open Food Facts enrichment successful.");
+      } catch (err) {
+        console.warn("Open Food Facts enrichment failed:", err);
+      }
+    }
+
+    // --- 4. PREPARE LLM PAYLOAD ---
     const tableStructure = ocrResult.grouped_rows.length > 0
       ? JSON.stringify(ocrResult.grouped_rows)
       : ocrResult.raw_text;
@@ -73,46 +85,60 @@ serve(async (req) => {
       ? "OCR OUTPUT (STRUCTURED ROWS - PRE-GROUPED BY LAYOUT):"
       : "OCR OUTPUT (RAW TEXT - NO LAYOUT DETECTED):";
 
+    const enrichmentContext = offData
+      ? `\n\nOPEN FOOD FACTS ENRICHMENT (Use this ONLY to fill GAPS. OCR data takes priority): ${JSON.stringify(offData)}`
+      : "";
+
     console.log("Sending to Gemini...");
     console.log("LLM Payload Preview (Structured):", tableStructure.substring(0, 500) + "...");
 
-    // --- 4. CALL GEMINI ---
+    // --- 5. CALL GEMINI ---
     if (!GEMINI_API_KEY) throw new Error("No Gemini API Key provided");
 
-    const systemPrompt = `You are a nutrition expert extracting data from OCR results.
-You are receiving PRE-PROCESSED OCR DATA. 
-If the data is provided as a JSON array of rows (e.g., [["Energy", "100kcal"], ...]), TRUST THE ROW GROUPING.
+    const systemPrompt = `You are a nutrition expert analyzing a product label via OCR.
+You are receiving PRE-PROCESSED OCR DATA and optional ENRICHMENT DATA.
 
-CRITICAL RULES:
-1. PRESERVE STRUCTURE: The input rows represent physical alignment. Do NOT hallucinate values that are not in the same row.
-2. EXTRACT EXACT VALUES: Map keys (like "Protein", "Sugars") to their values in the SAME row.
-3. INGREDIENTS: Extract the full ingredients list. Join multiple lines if they are part of the ingredients block.
-4. DO NOT GUESS: If a value is missing or ambiguous, return null or empty string. Do not invent numbers.
-5. SCHEMA: Return the EXACT JSON schema requested.
+OBJECTIVE:
+Extract structured nutrition info, ingredients, and calculate a 'Product Health Score'.
 
-JSON Schema:
+DATA SOURCE RULES:
+1. PRIORITY: OCR Data > Open Food Facts (Enrichment) > Inference.
+2. If OCR clearly shows a value, USE IT. Only uses Enrichment to fill missing gaps (e.g., missing category, missing allergen list).
+3. NO HALLUCINATION: If a nutrient is NOT in OCR and NOT in Enrichment, return null. DO NOT default to 0g.
+
+OUTPUT SCHEMA:
 {
-  "product_name": "Product Name",
-  "ingredients": ["Ingredient 1", "Ingredient 2", ...],
-  "allergens": ["Allergen 1", ...],
+  "product_name": "Verified Name",
+  "brand_name": "Brand",
+  "ingredients": ["Ingredient 1", ...],
   "nutritional_info": {
-    "energy_kj": "value",
-    "energy_kcal": "value", 
-    "protein": "value",
-    "total_fat": "value",
-    "saturated_fat": "value",
-    "trans_fat": "value",
-    "carbohydrate": "value",
-    "sugars": "value",
-    "dietary_fiber": "value",
-    "sodium": "value",
-    "cholesterol": "value"
+    "energy_kcal": 100 | null, 
+    "fat": 10.5 | null,
+    "saturated_fat": 1.2 | null,
+    "carbohydrates": 20 | null,
+    "sugar": 15 | null,
+    "protein": 5 | null,
+    "sodium_mg": 100 | null
   },
-  "health_analysis": "Summary",
-  "health_score": "1-10",
-  "alerts": [],
-  "suggestions": []
-}`;
+  "ocr_score": {
+    "score": 0-100,
+    "grade": "A"|"B"|"C"|"D"|"E",
+    "explanation": "Short sentence explaining the score.",
+    "breakdown": [
+      { "label": "Reason", "points": "+10" or "-5", "type": "positive"|"negative" }
+    ],
+    "confidence_note": "Mention if score is conservative due to missing nutrition data."
+  }
+}
+
+SCORING LOGIC (Custom OCR Score):
+- Start at 50 points.
+- +10 for short ingredient list (<5 items).
+- -15 for 'High Sugar' (>22.5g) or 'sugar' in top 3 ingredients.
+- -10 for each Ultra-Processed additive (e.g. E-numbers, HFC, preservatives).
+- +10 for 'High Protein' (>10g).
+- -20 if completely NO nutrition data is found (Uncertainty Penalty).
+- Max 100, Min 0.`;
 
     const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
@@ -120,7 +146,7 @@ JSON Schema:
       body: JSON.stringify({
         contents: [{
           role: 'user',
-          parts: [{ text: `${inputDescription}\n\n${tableStructure}` }]
+          parts: [{ text: `${inputDescription}\n${tableStructure}\n\nINFERRED PRODUCT NAME: ${inferredName || "Unknown"}${enrichmentContext}` }]
         }],
         system_instruction: { parts: [{ text: systemPrompt }] },
         generation_config: {
@@ -146,9 +172,11 @@ JSON Schema:
     finalJson.meta = {
       ocr_source: ocrResult.source,
       ocr_lines_count: ocrResult.lines.length,
-      structured_text: tableStructure // Pass the exact structured text used for LLM
+      structured_text: tableStructure,
+      inferred_name: inferredName,
+      is_enriched: !!offData
     };
-    finalJson.raw_text = ocrResult.raw_text; // Backward compatibility
+    finalJson.raw_text = ocrResult.raw_text;
 
     return new Response(JSON.stringify(finalJson), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -320,4 +348,57 @@ function groupLinesIntoRows(lines: OCRLine[]): string[][] {
     row.sort((a, b) => a.x - b.x);
     return row.map(r => r.text);
   });
+}
+
+function inferProductName(lines: OCRLine[]): string | null {
+  if (!lines || lines.length === 0) return null;
+
+  // 1. Calculate approximate font height for each line
+  const linesWithHeight = lines.map(l => {
+    // box is [[x,y], [x,y], [x,y], [x,y]]
+    // height = max_y - min_y
+    const ys = l.box.map(p => p[1]);
+    const height = Math.max(...ys) - Math.min(...ys);
+    return { text: l.text, height };
+  });
+
+  // 2. Sort by height (descending) - assume product name is largest text
+  linesWithHeight.sort((a, b) => b.height - a.height);
+
+  // 3. Take top 3 largest lines
+  const candidates = linesWithHeight.slice(0, 3);
+
+  // 4. Filter and cleanup
+  const ignoreTerms = ["nutrition", "facts", "ingredients", "net weight", "net wt", "calories", "serving", "per"];
+
+  const cleanName = candidates
+    .filter(c => !ignoreTerms.some(term => c.text.toLowerCase().includes(term)))
+    .map(c => c.text)
+    .join(" ");
+
+  return cleanName.length > 3 ? cleanName : null;
+}
+
+async function fetchOpenFoodFactsData(name: string): Promise<any | null> {
+  try {
+    const url = `${OPEN_FOOD_FACTS_API_URL}?search_terms=${encodeURIComponent(name)}&search_simple=1&action=process&json=1&page_size=1`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (data.products && data.products.length > 0) {
+      const p = data.products[0];
+      return {
+        product_name: p.product_name,
+        brands: p.brands,
+        categories: p.categories,
+        nutriscore: p.nutriscore_grade,
+        ingredients_text: p.ingredients_text
+      };
+    }
+    return null;
+  } catch (e) {
+    console.error("OFF Fetch Error:", e);
+    return null;
+  }
 }
