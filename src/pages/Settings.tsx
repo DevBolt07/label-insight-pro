@@ -7,14 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { 
-  Bell, 
-  Moon, 
-  Shield, 
-  Download, 
-  Upload, 
-  Trash2, 
-  Languages, 
+import {
+  Bell,
+  Moon,
+  Shield,
+  Download,
+  Upload,
+  Trash2,
+  Languages,
   Eye,
   Volume2,
   Smartphone,
@@ -43,10 +43,10 @@ export function Settings({ onNavigate, user }: SettingsProps) {
   const [alertSensitivity, setAlertSensitivity] = useState([75]);
 
   // Global settings from context
-  const { 
-    darkMode, setDarkMode, 
-    highContrast, setHighContrast, 
-    textSize, setTextSize, 
+  const {
+    darkMode, setDarkMode,
+    highContrast, setHighContrast,
+    textSize, setTextSize,
     language, setLanguage,
     scanSound, setScanSound,
     scanSoundType, setScanSoundType,
@@ -198,23 +198,7 @@ export function Settings({ onNavigate, user }: SettingsProps) {
         }
       ]
     },
-    {
-      title: "Health Alerts",
-      icon: Shield,
-      items: [
-        {
-          id: "sensitivity",
-          label: "Alert Sensitivity",
-          description: "Adjust threshold for health warnings",
-          type: "slider",
-          value: alertSensitivity,
-          onChange: setAlertSensitivity,
-          min: 0,
-          max: 100,
-          step: 5
-        }
-      ]
-    },
+
     {
       title: "Accessibility",
       icon: Accessibility,
@@ -256,7 +240,7 @@ export function Settings({ onNavigate, user }: SettingsProps) {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <MobileHeader 
+      <MobileHeader
         title={t('settings_title')}
         subtitle="Label Insight Pro"
         showBack
@@ -268,8 +252,8 @@ export function Settings({ onNavigate, user }: SettingsProps) {
         {settingsSections.map((section, sectionIndex) => {
           const Icon = section.icon;
           return (
-            <Card 
-              key={section.title} 
+            <Card
+              key={section.title}
               className={cn(
                 "card-material animate-scale-in",
                 `animate-stagger-${sectionIndex + 1}`
@@ -319,8 +303,8 @@ export function Settings({ onNavigate, user }: SettingsProps) {
                       </div>
                       {item.type === "select" && (
                         <div className="flex items-center gap-2">
-                          <Select 
-                            value={item.value as string} 
+                          <Select
+                            value={item.value as string}
                             onValueChange={item.onChange as (value: string) => void}
                           >
                             <SelectTrigger className="flex-1">
@@ -382,24 +366,24 @@ export function Settings({ onNavigate, user }: SettingsProps) {
             <Separator />
 
             <div className="space-y-3">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start gap-3"
                 onClick={handleExportData}
               >
                 <Download className="h-4 w-4" />
                 Export Profile Data
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start gap-3"
                 onClick={handleImportData}
               >
                 <Upload className="h-4 w-4" />
                 Import Profile Data
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start gap-3"
                 onClick={handleClearCache}
               >
@@ -413,8 +397,8 @@ export function Settings({ onNavigate, user }: SettingsProps) {
         {/* Logout */}
         <Card className="card-material animate-scale-in animate-stagger-6">
           <div className="p-6">
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               className="w-full gap-3"
               onClick={handleLogout}
             >

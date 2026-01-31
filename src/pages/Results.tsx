@@ -723,12 +723,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
               {ingredientsList.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {ingredientsList.map((ing, i) => (
-                    <Badge
-                      key={i}
-                      variant="secondary"
-                      className="font-normal text-sm py-1 px-2.5 cursor-pointer hover:scale-105 active:scale-95 transition-all hover:bg-secondary/80"
-                      onClick={() => handleIngredientClick(ing)}
-                    >
+                    <Badge key={i} variant="secondary" className="font-normal text-sm py-1 px-2.5">
                       {ing}
                     </Badge>
                   ))}
@@ -748,12 +743,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                 {productData?.allergens && productData.allergens.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {productData.allergens.map((alg, i) => (
-                      <Badge
-                        key={i}
-                        variant="destructive"
-                        className="uppercase font-bold tracking-wide cursor-pointer hover:bg-red-600 hover:scale-105 active:scale-95 transition-all"
-                        onClick={() => handleIngredientClick(alg)}
-                      >
+                      <Badge key={i} variant="destructive" className="uppercase font-bold tracking-wide">
                         {alg}
                       </Badge>
                     ))}
@@ -774,12 +764,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                 {productData?.additives && productData.additives.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {productData.additives.map((add, i) => (
-                      <Badge
-                        key={i}
-                        variant="outline"
-                        className="cursor-pointer hover:bg-muted/50 hover:scale-105 active:scale-95 transition-all"
-                        onClick={() => handleIngredientClick(add)}
-                      >
+                      <Badge key={i} variant="outline">
                         {add}
                       </Badge>
                     ))}
@@ -789,7 +774,6 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                 )}
               </div>
             </Card>
-
 
             {/* Alternatives Section */}
             {alternatives.length > 0 && (
