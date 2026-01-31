@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,12 +30,12 @@ export function HealthChatbot({ userProfile, productData, className }: HealthCha
     // Initialize with welcome message and suggested questions
     const welcomeMessage: ChatMessage = {
       role: 'assistant',
-      content: productData 
+      content: productData
         ? `Hi! I'm your personal nutrition advisor. I can help you understand this product and provide personalized health advice based on your profile. What would you like to know?`
         : `Hi! I'm your personal nutrition advisor. I can provide personalized health and nutrition guidance. How can I help you today?`,
       timestamp: new Date()
     };
-    
+
     setMessages([welcomeMessage]);
     setSuggestedQuestions(aiChatService.getSuggestedQuestions(productData));
   }, [productData]);
@@ -62,16 +64,28 @@ export function HealthChatbot({ userProfile, productData, className }: HealthCha
 
     try {
       const response = await aiChatService.sendMessage(message, userProfile, productData);
-      
+
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: response.response,
         timestamp: new Date()
       };
-      
+
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Chat error:', error);
+
+      // Handle rate limiting gracefully for demo
+      if (error.message && (error.message.includes('429') || error.message.includes('quota'))) {
+        const fallbackMessage: ChatMessage = {
+          role: 'assistant',
+          content: "### ⚠️ High Traffic\n\nI'm receiving a lot of requests right now! \n\n**Quick Analysis:**\nBased on general nutrition advice, check the **sugar** and **saturated fat** levels on the label. Safe limits are usually <5g sugar and <1.5g sat fat per 100g.",
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, fallbackMessage]);
+        return;
+      }
+
       toast({
         title: "Chat Error",
         description: "Failed to get response. Please try again.",
@@ -104,17 +118,27 @@ export function HealthChatbot({ userProfile, productData, className }: HealthCha
                   <Bot className="h-4 w-4 text-primary" />
                 </div>
               )}
-              
+
               <Card className={cn(
-                "max-w-[280px] p-3",
-                message.role === 'user' 
-                  ? "bg-primary text-primary-foreground" 
-                  : "bg-muted/50"
+                "max-w-[85%] p-3 shadow-sm",
+                message.role === 'user'
+                  ? "bg-primary text-primary-foreground ml-auto rounded-tr-none"
+                  : "bg-muted/40 mr-auto rounded-tl-none border-border/50"
               )}>
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                <div className={cn("text-sm overflow-hidden", message.role === 'user' ? "prose-invert" : "prose dark:prose-invert")}>
+                  {message.role === 'user' ? (
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  ) : (
+                    <div className="markdown-content space-y-2 [&>h3]:text-sm [&>h3]:font-bold [&>h3]:mt-2 [&>h3]:mb-1 [&>ul]:list-disc [&>ul]:pl-4 [&>ul]:space-y-1 [&>p]:leading-normal">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  )}
+                </div>
                 <p className={cn(
-                  "text-xs mt-1 opacity-70",
-                  message.role === 'user' ? "text-primary-foreground" : "text-muted-foreground"
+                  "text-[10px] mt-1.5 text-right opacity-70",
+                  message.role === 'user' ? "text-primary-foreground/80" : "text-muted-foreground"
                 )}>
                   {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>

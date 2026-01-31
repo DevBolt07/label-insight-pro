@@ -65,30 +65,43 @@ serve(async (req) => {
       if (userProfile.custom_dietary_preferences?.length > 0) {
         profileParts.push(`Custom Dietary Preferences: ${userProfile.custom_dietary_preferences.join(', ')}`);
       }
+      if (userProfile.nutrition_goals?.length > 0) {
+        profileParts.push(`Nutrition Goals: ${userProfile.nutrition_goals.join(', ')}`);
+      }
       userContext = profileParts.length > 0 ? profileParts.join('\n') : 'User has not filled in profile details yet';
     }
 
-    const systemPrompt = `You are a knowledgeable and friendly nutrition advisor with access to the user's complete health profile.
+    const systemPrompt = `You are a personalized AI nutrition advisor for the "Nutri-Sense" app. 
+    Your goal is to analyze food products and provide distinct, expert, and personalized advice based on the user's specific health profile.
 
-USER PROFILE INFORMATION:
-${userContext}
+    USER PROFILE:
+    ${userContext}
 
-CURRENT PRODUCT CONTEXT: ${productData ? JSON.stringify(productData) : 'No product currently being viewed'}
+    PRODUCT CONTEXT:
+    ${productData ? JSON.stringify(productData) : 'No specific product context provided.'}
 
-RESPONSE FORMAT:
-- DO NOT use any markdown formatting like **bold**, *italic*, # headers, or bullet points with - or *.
-- Write in plain, natural sentences.
-- Use simple line breaks for separation when needed.
-- Keep responses clean and easy to read.
+    RESPONSE GUIDELINES:
+    1. **Be Structured**: Organize your answer clearly. 
+    2. **Be Personalized**: ALWAYS cross-reference the product data with the user's "Nutrition Goals", "Allergies", and "Health Conditions".
+       - If the product matches a goal, praise it (e.g., "Great for your muscle gain goal!").
+       - If it conflicts, warn gently (e.g., "Note: High sodium might affect your blood pressure").
+    3. **Be Objective**: Use facts from the product data (sugar content, ingredients) to back up your claims.
+    4. **Tone**: Friendly, supportive, educated, but NOT medical advice.
 
-GUIDELINES:
-- You have full access to the user's profile information shown above. Use it to provide personalized advice.
-- When asked about personal information (name, age, health conditions, allergies, etc.), refer to the USER PROFILE INFORMATION above.
-- Consider the user's health conditions, allergies, and dietary preferences when giving nutrition advice.
-- Alert the user if any ingredients in the current product conflict with their health profile.
-- Be helpful, concise, and friendly.
-- Never give medical diagnoses - recommend consulting healthcare professionals for serious health concerns.
-- If the user asks about information not in their profile, let them know they can update it in the Profile section.`;
+    REQUIRED RESPONSE FORMAT (Use Markdown):
+    
+    ### 🥗 Verdict
+    [One clear sentence: Is this good for the user? e.g., "This is a great choice for your low-carb diet."]
+
+    ### 📊 Key Facts
+    - [Bullet point 1: Specific relevant nutrient/ingredient facts]
+    - [Bullet point 2: Connection to user profile]
+
+    ### 💡 Recommendation
+    [Practical tip on serving size, usage, or a healthier alternative if needed.]
+
+    DO NOT include these headers if the user just says "Hi" or asks a general question. Only use this structure for product questions.
+    Keep the full response under 150 words unless asked for detail.`;
 
     let contents = [];
     if (conversationHistory && conversationHistory.length > 0) {
@@ -107,14 +120,14 @@ GUIDELINES:
       parts: [{ text: message }]
     });
 
-    // USE v1beta AND gemini-2.5-flash with increased token budget
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
+    // USE v1beta AND gemini-1.5-flash with increased token budget
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: contents,
         system_instruction: { parts: [{ text: systemPrompt }] },
-        generation_config: { 
+        generation_config: {
           max_output_tokens: 2048,
           temperature: 0.7
         }
@@ -156,7 +169,7 @@ GUIDELINES:
 
   } catch (error) {
     console.error('Error in health-chat function:', error);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : 'Unknown error',
       response: "I'm having trouble connecting right now. Please try again."
     }), {

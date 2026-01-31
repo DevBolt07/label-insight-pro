@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+    .markdown-content strong {
+        font-weight: 700;
+        color: hsl(var(--foreground));
+    }
+    
+    .markdown-content a {
+        color: hsl(var(--primary));
+        text-decoration: underline;
+        font-weight: 500;
+    }
+
+    .markdown-content ul {
+        list-style-type: disc;
+        padding-left: 1.5em;
+        margin-top: 0.5em;
+        margin-bottom: 0.5em;
+    }
+}
+
 /* NutriScanner - Enhanced Attractive Blue Design System
    Premium Blue Color Palette with Modern Gradients
 */
