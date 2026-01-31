@@ -120,8 +120,8 @@ serve(async (req) => {
       parts: [{ text: message }]
     });
 
-    // USE v1beta AND gemini-1.5-flash with increased token budget
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+    // USE v1beta AND gemini-2.5-flash with increased token budget
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
