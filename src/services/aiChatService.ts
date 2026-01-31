@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
+import { franc } from 'franc-min';
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -15,17 +17,21 @@ class AIChatService {
   private conversationHistory: ChatMessage[] = [];
 
   async sendMessage(
-    message: string, 
-    userProfile?: any, 
+    message: string,
+    userProfile?: any,
     productData?: any
   ): Promise<ChatResponse> {
     try {
+      // Detect language (returns ISO 639-3, e.g., 'eng', 'hin', 'fra')
+      const detectedLang = franc(message);
+
       const { data, error } = await supabase.functions.invoke('health-chat', {
         body: {
           message,
           userProfile,
           productData,
-          conversationHistory: this.conversationHistory
+          conversationHistory: this.conversationHistory,
+          preferredLanguage: detectedLang
         }
       });
 
@@ -62,7 +68,7 @@ class AIChatService {
       };
     } catch (error) {
       console.error('AI chat service error:', error);
-      
+
       // Return fallback response
       return {
         response: "I apologize, but I'm having difficulty processing your question right now. Please try again, and remember to consult healthcare professionals for any serious health concerns.",
