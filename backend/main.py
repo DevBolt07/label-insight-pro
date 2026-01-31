@@ -10,6 +10,11 @@ import base64
 import os
 from supabase import create_client, Client
 import pytesseract
+try:
+    from .paddle_engine import paddle_engine, PaddleOCRResponse
+except ImportError:
+    from paddle_engine import paddle_engine, PaddleOCRResponse
+
 
 # Initialize Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
@@ -83,6 +88,9 @@ class OCRAnalysisResult(BaseModel):
     categorized_text: CategorizedText
     raw_text: str
     confidence: float
+
+class OCRRequest(BaseModel):
+    image_base64: str
 
 # Hidden sugars and harmful ingredients
 HIDDEN_SUGARS = ['maltodextrin', 'dextrose', 'fructose', 'sucrose', 'corn syrup', 'high fructose corn syrup', 
@@ -442,6 +450,19 @@ async def analyze_image_base64(image_data: dict):
         return await analyze_image(UploadFile(file=io.BytesIO(image_bytes), filename="image.png"))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
+
+# PaddleOCR specific endpoint
+@app.post("/ocr", response_model=PaddleOCRResponse)
+def run_paddle_ocr(request: OCRRequest):
+    """
+    Run PaddleOCR on the provided base64 image.
+    This runs synchronously in a threadpool to avoid blocking the event loop.
+    """
+    try:
+        return paddle_engine.process_base64(request.image_base64)
+    except Exception as e:
+        print(f"PaddleOCR Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 async def root():

@@ -3,7 +3,22 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 // Configuration
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-const OCR_SPACE_API_KEY = 'K83414045188957';
+const OCR_SPACE_API_KEY = Deno.env.get('OCR_SPACE_API_KEY') || 'K83414045188957';
+// Use host.docker.internal for local Supabase -> Host communication
+const PADDLE_OCR_URL = Deno.env.get('PADDLE_OCR_URL') || 'http://host.docker.internal:8000/ocr';
+
+interface OCRLine {
+  text: string;
+  confidence: number;
+  box: number[][]; // [[x,y], [x,y], [x,y], [x,y]]
+}
+
+interface ProcessedOCR {
+  lines: OCRLine[];
+  source: 'paddle' | 'ocr.space' | 'ocr.space-fallback';
+  grouped_rows: string[][];
+  raw_text: string;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -25,133 +40,123 @@ serve(async (req) => {
       imageBase64 = `data:image/jpeg;base64,${imageBase64}`;
     }
 
-    console.log("Step 1: Sending image to OCR.space...");
+    // Clean base64 for APIs
+    const base64Clean = imageBase64.split(',')[1] || imageBase64;
 
-    // --- 2. CALL OCR.SPACE ---
-    const formData = new FormData();
-    formData.append('base64Image', imageBase64);
-    formData.append('apikey', OCR_SPACE_API_KEY);
-    formData.append('language', 'eng');
-    formData.append('isOverlayRequired', 'false');
-    formData.append('OCREngine', '2'); 
+    // --- 2. PERFORM DUAL-ENGINE OCR ---
+    let ocrResult: ProcessedOCR;
 
-    const ocrResponse = await fetch('https://api.ocr.space/parse/image', {
-      method: 'POST',
-      body: formData,
-    });
-
-    const ocrData = await ocrResponse.json();
-
-    if (ocrData.IsErroredOnProcessing) {
-      throw new Error(`OCR.space Error: ${ocrData.ErrorMessage}`);
-    }
-
-    const extractedText = ocrData.ParsedResults?.[0]?.ParsedText || "";
-    console.log("OCR Success! Text length:", extractedText.length);
-    
-    if (!extractedText || extractedText.length < 5) {
-      throw new Error("OCR failed to extract readable text.");
-    }
-
-    // --- 3. TRY GEMINI VIA RAW FETCH ---
     try {
-      if (!GEMINI_API_KEY) throw new Error("No Gemini Key");
-      
-      console.log("Step 2: Sending text to Gemini 2.5 Flash...");
+      console.log("Attempting Primary OCR (PaddleOCR)...");
+      ocrResult = await callPaddleOCR(base64Clean);
+      console.log(`PaddleOCR Success! Lines: ${ocrResult.lines.length}`);
+    } catch (paddleError) {
+      console.error("PaddleOCR failed or unreachable:", paddleError);
+      console.log("Falling back to OCR.space...");
 
-      const systemPrompt = `You are a nutrition expert performing FULL-SPECTRUM EXTRACTION from food labels.
+      try {
+        ocrResult = await callOCRSpace(base64Clean);
+        console.log(`OCR.space Success! Source: ${ocrResult.source}, Lines: ${ocrResult.lines.length}`);
+      } catch (ocrSpaceError) {
+        console.error("OCR.space failed:", ocrSpaceError);
+        throw new Error("Both OCR engines failed. Please ensure the image is clear and try again.");
+      }
+    }
 
-CRITICAL INSTRUCTIONS:
-1. Extract EVERY ingredient listed, reading through ALL line breaks until you hit a stop section (allergen advice, storage instructions, etc.)
-2. Extract ALL nutritional values from the nutrition table (Energy, Protein, Fat, Carbohydrates, Sodium, Sugars, etc.)
-3. Extract ALL allergen information including "Contains" and "May contain traces of"
-4. Do NOT stop after the first 1-2 items - continue parsing until you've captured everything
+    // --- 3. PREPARE LLM PAYLOAD ---
+    // If we have proper rows, we format them nicely
+    const tableStructure = ocrResult.grouped_rows.length > 0
+      ? JSON.stringify(ocrResult.grouped_rows)
+      : ocrResult.raw_text;
 
-PARSING RULES:
-- Ingredients section: Read continuously through newlines, capture percentages in parentheses, include all items separated by commas, periods, or line breaks
-- Nutrition table: Extract all rows including Energy (kJ/kcal), Protein, Fat (total and saturated), Carbohydrates (total and sugars), Sodium, Fiber, etc.
-- Allergens: Capture both "Contains: X" and "May contain traces of: Y, Z"
-- Multi-line lists: Do NOT truncate - parse the entire block until hitting a clear section boundary
+    const inputDescription = ocrResult.grouped_rows.length > 0
+      ? "OCR OUTPUT (STRUCTURED ROWS - PRE-GROUPED BY LAYOUT):"
+      : "OCR OUTPUT (RAW TEXT - NO LAYOUT DETECTED):";
 
-Return this EXACT JSON structure:
+    console.log("Sending to Gemini...");
+
+    // --- 4. CALL GEMINI ---
+    if (!GEMINI_API_KEY) throw new Error("No Gemini API Key provided");
+
+    const systemPrompt = `You are a nutrition expert extracting data from OCR results.
+You are receiving PRE-PROCESSED OCR DATA. 
+If the data is provided as a JSON array of rows (e.g., [["Energy", "100kcal"], ...]), TRUST THE ROW GROUPING.
+
+CRITICAL RULES:
+1. PRESERVE STRUCTURE: The input rows represent physical alignment. Do NOT hallucinate values that are not in the same row.
+2. EXTRACT EXACT VALUES: Map keys (like "Protein", "Sugars") to their values in the SAME row.
+3. INGREDIENTS: Extract the full ingredients list. Join multiple lines if they are part of the ingredients block.
+4. DO NOT GUESS: If a value is missing or ambiguous, return null or empty string. Do not invent numbers.
+5. SCHEMA: Return the EXACT JSON schema requested.
+
+JSON Schema:
 {
   "product_name": "Product Name",
-  "ingredients": ["Complete list of ALL ingredients with percentages if shown"],
-  "allergens": ["All allergens including traces"],
+  "ingredients": ["Ingredient 1", "Ingredient 2", ...],
+  "allergens": ["Allergen 1", ...],
   "nutritional_info": {
-    "energy_kj": "Value with unit",
-    "energy_kcal": "Value with unit", 
-    "protein": "Value with unit",
-    "total_fat": "Value with unit",
-    "saturated_fat": "Value with unit",
-    "trans_fat": "Value with unit",
-    "carbohydrate": "Value with unit",
-    "sugars": "Value with unit",
-    "dietary_fiber": "Value with unit",
-    "sodium": "Value with unit",
-    "cholesterol": "Value with unit"
+    "energy_kj": "value",
+    "energy_kcal": "value", 
+    "protein": "value",
+    "total_fat": "value",
+    "saturated_fat": "value",
+    "trans_fat": "value",
+    "carbohydrate": "value",
+    "sugars": "value",
+    "dietary_fiber": "value",
+    "sodium": "value",
+    "cholesterol": "value"
   },
-  "health_analysis": "Brief summary",
+  "health_analysis": "Summary",
   "health_score": "1-10",
-  "alerts": ["Health warnings"],
-  "suggestions": ["Recommendations"]
+  "alerts": [],
+  "suggestions": []
 }`;
 
-      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [{ text: `EXTRACTED TEXT:\n${extractedText}` }]
-          }],
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          generation_config: { 
-            max_output_tokens: 1000, 
-            temperature: 0.1,
-            response_mime_type: "application/json"
-          }
-        }),
-      });
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          role: 'user',
+          parts: [{ text: `${inputDescription}\n\n${tableStructure}` }]
+        }],
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        generation_config: {
+          max_output_tokens: 1500,
+          temperature: 0.1,
+          response_mime_type: "application/json"
+        }
+      }),
+    });
 
-      if (!geminiResponse.ok) {
-        const errData = await geminiResponse.json();
-        throw new Error(`Gemini API Error: ${JSON.stringify(errData)}`);
-      }
-
-      const geminiData = await geminiResponse.json();
-      const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-      
-      if (!rawText) throw new Error("Empty response from Gemini");
-
-      const jsonString = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-      const finalJson = JSON.parse(jsonString);
-
-      // *** ADD RAW TEXT TO RESPONSE ***
-      finalJson.raw_text = extractedText;
-
-      console.log("Gemini JSON parsing successful!");
-      
-      return new Response(JSON.stringify(finalJson), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-
-    } catch (aiError) {
-      console.error("Gemini failed, falling back to Regex:", aiError);
-      const fallbackResult = parseNutritionText(extractedText);
-      // *** ADD RAW TEXT TO FALLBACK ***
-      fallbackResult.raw_text = extractedText; 
-      
-      return new Response(JSON.stringify(fallbackResult), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!geminiResponse.ok) {
+      const err = await geminiResponse.json();
+      throw new Error(`Gemini Error: ${JSON.stringify(err)}`);
     }
 
+    const geminiData = await geminiResponse.json();
+    const resultText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) throw new Error("Empty response from Gemini");
+
+    const finalJson = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim());
+
+    // Attach debug info
+    finalJson.meta = {
+      ocr_source: ocrResult.source,
+      ocr_lines_count: ocrResult.lines.length
+    };
+    finalJson.raw_text = ocrResult.raw_text; // Backward compatibility
+
+    return new Response(JSON.stringify(finalJson), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
   } catch (error: any) {
-    console.error('Fatal Error:', error);
-    return new Response(JSON.stringify({ 
+    console.error('Processing Error:', error);
+    return new Response(JSON.stringify({
       error: error.message || 'An error occurred',
-      details: error.toString() 
+      details: error.toString()
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -159,39 +164,158 @@ Return this EXACT JSON structure:
   }
 });
 
-function parseNutritionText(text: string) {
-  const clean = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const find = (r: RegExp) => (clean.match(r) || [])[1]?.trim() || "0";
+// --- HELPER FUNCTIONS ---
 
+async function callPaddleOCR(base64Image: string): Promise<ProcessedOCR> {
+  // Call the dedicated Python microservice
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+    const res = await fetch(PADDLE_OCR_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_base64: base64Image }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) throw new Error(`PaddleOCR Service Error: ${res.statusText}`);
+
+    const data = await res.json();
+    const lines: OCRLine[] = data.lines || [];
+
+    if (lines.length === 0) throw new Error("PaddleOCR returned no lines");
+
+    // Group rows
+    const grouped = groupLinesIntoRows(lines);
+    const rawText = lines.map(l => l.text).join('\n');
+
+    return {
+      lines,
+      source: 'paddle',
+      grouped_rows: grouped,
+      raw_text: rawText
+    };
+  } catch (e) {
+    throw e;
+  }
+}
+
+async function callOCRSpace(base64Image: string): Promise<ProcessedOCR> {
+  const formData = new FormData();
+  formData.append('base64Image', `data:image/jpeg;base64,${base64Image}`);
+  formData.append('apikey', OCR_SPACE_API_KEY);
+  formData.append('language', 'eng');
+  formData.append('isOverlayRequired', 'true'); // Required for layout
+  formData.append('OCREngine', '2');
+
+  const res = await fetch('https://api.ocr.space/parse/image', {
+    method: 'POST',
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (data.IsErroredOnProcessing) throw new Error(data.ErrorMessage?.[0] || "Unknown OCR Error");
+
+  const result = data.ParsedResults?.[0];
+  if (!result) throw new Error("No OCR result");
+
+  const overlay = result.TextOverlay;
+  const rawText = result.ParsedText || "";
+
+  // If overlay is available, we can reconstruct lines
+  if (overlay && overlay.Lines && overlay.Lines.length > 0) {
+    const lines: OCRLine[] = overlay.Lines.map((l: any) => {
+      // OCR.space gives Words (Lines -> Words). We need to aggregate or take line text.
+      // Actually overlay.Lines has 'LineText'. 
+      // Box is tricky. Lines don't have a single box in their JSON usually, Words do.
+      // But typically overlay.Lines is [{ LineText: "...", Words: [...] }]
+      // We can approximate the box from the first and last word, or just use Words.
+      // Let's iterate lines and aggregate words to get a bounding box.
+
+      const words = l.Words || [];
+      const text = l.LineText;
+      let minTop = 99999, minLeft = 99999, maxBot = 0, maxRight = 0;
+
+      words.forEach((w: any) => {
+        if (w.Top < minTop) minTop = w.Top;
+        if (w.Left < minLeft) minLeft = w.Left;
+        if (w.Top + w.Height > maxBot) maxBot = w.Top + w.Height;
+        if (w.Left + w.Width > maxRight) maxRight = w.Left + w.Width;
+      });
+
+      // If words are missing but text exists (rare), skip logic
+      if (words.length === 0) return null;
+
+      return {
+        text: text,
+        confidence: 0.9, // OCR.space doesn't give line conf merely word conf
+        box: [[minLeft, minTop], [maxRight, minTop], [maxRight, maxBot], [minLeft, maxBot]]
+      };
+    }).filter((l: any) => l !== null);
+
+    return {
+      lines: lines,
+      source: 'ocr.space',
+      grouped_rows: groupLinesIntoRows(lines),
+      raw_text: rawText
+    };
+  }
+
+  // Fallback to flat text if no overlay
   return {
-    product_name: "Scanned Product",
-    ingredients: (() => {
-      const match = clean.match(/Ingredients?:?\s*([\s\S]+?)(?:Allergen Advice|Allergy Advice|Allergens?:|Store in|Storage|Directions|Thoughtfully made|$)/i);
-      const raw = match?.[1] || "Not found";
-      return raw
-        .replace(/\n+/g, ' ')
-        .split(/[,•]/)
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-    })(),
-    allergens: [],
-    nutritional_info: {
-      calories: find(/(?:Calories|Energy)\D*(\d+)/i), 
-      total_fat: find(/Total\s*Fat\s*(\d+(?:\.\d+)?\w*)/i), 
-      saturated_fat: "0g", 
-      trans_fat: "0g", 
-      cholesterol: "0mg", 
-      sodium: find(/Sodium\s*(\d+(?:\.\d+)?\w*)/i), 
-      total_carbohydrate: find(/Carb(?:ohydrate)?s?\s*(\d+(?:\.\d+)?\w*)/i),
-      dietary_fiber: "0g", 
-      sugars: find(/Sugars?\s*(\d+(?:\.\d+)?\w*)/i), 
-      protein: find(/Protein\s*(\d+(?:\.\d+)?\w*)/i),
-      iron: find(/Iron\s*(\d+(?:\.\d+)?\w*)/i)
-    },
-    health_analysis: "Basic OCR data (AI unavailable).",
-    health_score: 5,
-    alerts: ["AI unavailable"],
-    suggestions: [],
-    raw_text: text // Add it here too for type safety if needed
+    lines: [],
+    source: 'ocr.space-fallback',
+    grouped_rows: [],
+    raw_text: rawText
   };
+}
+
+function groupLinesIntoRows(lines: OCRLine[]): string[][] {
+  if (lines.length === 0) return [];
+
+  // simple clustering by Y center
+  // 1. Calculate center Y for each line
+  const withY = lines.map(line => {
+    // Box is [[x,y], [x,y], [x,y], [x,y]]
+    // cy = average of all ys
+    const ys = line.box.map(p => p[1]);
+    const cy = ys.reduce((a, b) => a + b, 0) / ys.length;
+    const height = Math.max(...ys) - Math.min(...ys);
+    return { ...line, cy, height, x: line.box[0][0] };
+  });
+
+  // 2. Sort by Y
+  withY.sort((a, b) => a.cy - b.cy);
+
+  // 3. Group
+  const rows: typeof withY[] = [];
+  let currentRow: typeof withY = [];
+
+  // Adaptive threshold? usually 50% of text height
+  const avgHeight = withY.reduce((sum, item) => sum + item.height, 0) / withY.length;
+  const threshold = avgHeight * 0.6;
+
+  withY.forEach((item) => {
+    if (currentRow.length === 0) {
+      currentRow.push(item);
+    } else {
+      // Compare with average Y of current row
+      const rowY = currentRow.reduce((sum, i) => sum + i.cy, 0) / currentRow.length;
+      if (Math.abs(item.cy - rowY) < threshold) {
+        currentRow.push(item);
+      } else {
+        rows.push(currentRow);
+        currentRow = [item];
+      }
+    }
+  });
+  if (currentRow.length > 0) rows.push(currentRow);
+
+  // 4. Sort each row by X and extract text
+  return rows.map(row => {
+    row.sort((a, b) => a.x - b.x);
+    return row.map(r => r.text);
+  });
 }

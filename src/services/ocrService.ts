@@ -36,6 +36,7 @@ export interface OCRResult {
   contradictions: string[];
   categorizedText?: CategorizedText;
   rawText?: string;
+  ocrSource?: string;
 }
 
 class OCRService {
@@ -77,7 +78,7 @@ class OCRService {
           item &&
           arr.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index
       );
-      
+
       // Calculate a basic health score based on findings
       const healthScore = this.calculateHealthScore(ingredients, nutritionData);
       const grade = this.getGradeFromScore(healthScore);
@@ -102,7 +103,8 @@ class OCRService {
           nutrition_facts: rawNutritionFacts,
           miscellaneous: []
         },
-        rawText: data.raw_text
+        rawText: data.raw_text,
+        ocrSource: data.meta?.ocr_source || 'Unknown'
       };
     } catch (error) {
       console.error('OCR processing error:', error);
@@ -113,7 +115,7 @@ class OCRService {
   // Helper to normalize nutrition keys from Gemini
   private normalizeNutrition(facts: any): NutritionData {
     if (!facts) return {};
-    
+
     // Helper to safely parse numbers
     const parseVal = (val: any) => {
       if (typeof val === 'number') return val;
@@ -134,22 +136,22 @@ class OCRService {
 
   private calculateHealthScore(ingredients: string[], nutrition: NutritionData): number {
     let score = 80;
-    
+
     // Deduct for sugar
     if (nutrition.sugar && nutrition.sugar > 10) score -= 15;
-    
+
     // Deduct for harmful ingredients
     const harmfulIngredients = [
       'high fructose corn syrup', 'hydrogenated', 'aspartame', 'sodium nitrite'
     ];
-    
+
     ingredients.forEach(ingredient => {
       const lower = ingredient.toLowerCase();
       if (harmfulIngredients.some(h => lower.includes(h))) {
         score -= 10;
       }
     });
-    
+
     return Math.max(0, Math.min(100, score));
   }
 

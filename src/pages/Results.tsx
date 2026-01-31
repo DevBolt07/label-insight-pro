@@ -15,9 +15,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye, MessageCircle, Sparkles, Package, MapPin, Factory, Info, Leaf, Calendar, Globe, Droplet, Flame, Zap, HelpCircle, Calculator, ChevronRight } from "lucide-react";
+import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye, MessageCircle, Sparkles, Package, MapPin, Factory, Info, Leaf, Calendar, Globe, Droplet, Flame, Zap, HelpCircle, Calculator, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductData } from "@/services/openFoodFacts";
 import { OCRResult } from "@/services/ocrService";
@@ -47,6 +48,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
   const [alternatives, setAlternatives] = useState<Array<{ name: string; brand: string; reason: string; benefits: string[]; healthierBecause: string }>>([]);
   const [alternativesLoading, setAlternativesLoading] = useState(false);
   const [fullUserProfile, setFullUserProfile] = useState<any>(null);
+  const [isRawTextOpen, setIsRawTextOpen] = useState(false);
 
   // Fetch full user profile ONCE and cache it for all uses
   useEffect(() => {
@@ -674,6 +676,42 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                   </Button>
                 </div>
               </Card>
+            )}
+
+            {/* Raw OCR Data (Debug/Info) */}
+            {isOCRResult && ocrResult?.rawText && (
+              <Collapsible
+                open={isRawTextOpen}
+                onOpenChange={setIsRawTextOpen}
+                className="w-full border rounded-lg bg-card/50 mt-4"
+              >
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Extracted Raw Text</span>
+                    <Badge variant="outline" className="text-[10px] h-5 ml-2 font-mono">
+                      SOURCE: {ocrResult.ocrSource || 'Unknown'}
+                    </Badge>
+                  </div>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-8 h-8 p-0">
+                      {isRawTextOpen ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      <span className="sr-only">Toggle</span>
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4 pt-0">
+                    <pre className="text-xs font-mono bg-muted/50 p-3 rounded-md overflow-x-auto whitespace-pre-wrap max-h-[200px] border select-text">
+                      {ocrResult.rawText}
+                    </pre>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             )}
           </TabsContent>
 
