@@ -62,21 +62,102 @@ serve(async (req) => {
       }
     }
 
-    // --- 3. PRODUCT NAME INFERENCE & OFF ENRICHMENT ---
-    const inferredName = inferProductName(ocrResult.lines);
-    let offData = null;
+    // --- 3. IDENTIFY PRODUCT & BRAND (New Step) ---
+    console.log("Analyzing OCR for Product Identity...");
 
-    if (inferredName) {
-      console.log(`Inferred Product Name: "${inferredName}". Querying Open Food Facts...`);
-      try {
-        offData = await fetchOpenFoodFactsData(inferredName);
-        if (offData) console.log("Open Food Facts enrichment successful.");
-      } catch (err) {
-        console.warn("Open Food Facts enrichment failed:", err);
-      }
+    // Prepare concise input for Identity LLM
+    const identityInput = `OCR TEXT:\n${ocrResult.raw_text.substring(0, 1500)}`; // limit to first 1.5k chars for speed
+
+    const identityPrompt = `Analyze the OCR text. Extract:
+1. Product Name (most prominent)
+2. Brand (if clear)
+3. List of Ingredients (raw strings)
+4. Confidence (0.0 to 1.0) of identification
+
+Strict JSON:
+{
+  "predicted_product_name": "string" | null,
+  "predicted_brand": "string" | null,
+  "ingredients": ["string"],
+  "confidence": number
+}`;
+
+    // Call Gemini for Identification (Lightweight call)
+    let identityResult = null;
+    try {
+      const idResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: `${identityInput}\n\n${identityPrompt}` }] }],
+          generation_config: { response_mime_type: "application/json" }
+        })
+      });
+      const idJson = await idResp.json();
+      const idText = idJson.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (idText) identityResult = JSON.parse(idText);
+      console.log("Identity Result:", identityResult);
+    } catch (e) {
+      console.warn("Identity Step Failed:", e);
     }
 
-    // --- 4. PREPARE LLM PAYLOAD ---
+    // --- 4. DATA ENRICHMENT & VALIDATION ---
+    let offData = null;
+    let enrichmentLogs = [];
+
+    if (identityResult && identityResult.confidence >= 0.6 && identityResult.predicted_product_name) {
+      console.log(`Confidence High (${identityResult.confidence}). Searching Open Food Facts...`);
+
+      try {
+        // Search OFF
+        const candidates = await searchOpenFoodFacts(identityResult.predicted_product_name);
+
+        if (candidates && candidates.length > 0) {
+          // We take the top candidate to validate
+          const candidate = candidates[0];
+
+          // VALIDATE using Backend Endpoint
+          // We need to parse ingredients from OFF string to list for validation
+          const offIngredientsList = candidate.ingredients_text
+            ? candidate.ingredients_text.split(',').map((s: string) => s.trim())
+            : [];
+
+          if (identityResult.ingredients && identityResult.ingredients.length > 0 && offIngredientsList.length > 0) {
+            console.log("Validating ingredients overlap...");
+            const validation = await callValidationEndpoint({
+              ocr_ingredients: identityResult.ingredients,
+              off_ingredients: offIngredientsList
+            });
+
+            console.log("Validation Result:", validation);
+            enrichmentLogs.push(`Validation Score: ${validation.overlap_score}`);
+
+            if (validation.overlap_score >= 0.5) {
+              console.log("VALIDATION PASSED! Enriched Data Accepted.");
+              offData = candidate;
+              enrichmentLogs.push("Enrichment ACCEPTED");
+            } else {
+              console.warn("VALIDATION FAILED. Ingredients mismatch.");
+              enrichmentLogs.push("Enrichment REJECTED (Low Ingredient Match)");
+            }
+          } else {
+            // If no ingredients to compare, we might skip enrichment or be conservative
+            // For safety, we skip enrichment if we can't validate ingredients
+            console.warn("Cannot validate (missing ingredients in OCR or OFF). Skipping enrichment.");
+          }
+        } else {
+          console.log("No OFF results found.");
+        }
+      } catch (err) {
+        console.error("Enrichment process error:", err);
+      }
+    } else {
+      console.log("Skipping enrichment (Low confidence or missing name).");
+    }
+
+    // --- 5. PREPARE FINAL LLM PAYLOAD ---
+    const inferredName = identityResult?.predicted_product_name || inferProductName(ocrResult.lines);
+
     const tableStructure = ocrResult.grouped_rows.length > 0
       ? JSON.stringify(ocrResult.grouped_rows)
       : ocrResult.raw_text;
@@ -89,10 +170,9 @@ serve(async (req) => {
       ? `\n\nOPEN FOOD FACTS ENRICHMENT (Use this ONLY to fill GAPS. OCR data takes priority): ${JSON.stringify(offData)}`
       : "";
 
-    console.log("Sending to Gemini...");
-    console.log("LLM Payload Preview (Structured):", tableStructure.substring(0, 500) + "...");
+    console.log("Sending to Gemini (Final Analysis)...");
 
-    // --- 5. CALL GEMINI ---
+    // --- 6. CALL GEMINI (Final) ---
     if (!GEMINI_API_KEY) throw new Error("No Gemini API Key provided");
 
     const systemPrompt = `You are a nutrition expert analyzing a product label via OCR.
@@ -104,7 +184,8 @@ Extract structured nutrition info, ingredients, and calculate a 'Product Health 
 DATA SOURCE RULES:
 1. PRIORITY: OCR Data > Open Food Facts (Enrichment) > Inference.
 2. If OCR clearly shows a value, USE IT. Only uses Enrichment to fill missing gaps (e.g., missing category, missing allergen list).
-3. NO HALLUCINATION: If a nutrient is NOT in OCR and NOT in Enrichment, return null. DO NOT default to 0g.
+3. If Enriched data is provided, it has essentially passed validation. You may use it for 'Product Name', 'Brand', and missing nutrients.
+4. NO HALLUCINATION: If a nutrient is NOT in OCR and NOT in Enrichment, return null. DO NOT default to 0g.
 
 OUTPUT SCHEMA:
 {
@@ -350,6 +431,46 @@ function groupLinesIntoRows(lines: OCRLine[]): string[][] {
   });
 }
 
+async function searchOpenFoodFacts(name: string): Promise<any[]> {
+  try {
+    const url = `${OPEN_FOOD_FACTS_API_URL}?search_terms=${encodeURIComponent(name)}&search_simple=1&action=process&json=1&page_size=5`;
+    console.log(`Searching OFF: ${url}`);
+    const res = await fetch(url);
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    return data.products || [];
+  } catch (e) {
+    console.error("OFF Fetch Error:", e);
+    return [];
+  }
+}
+
+async function callValidationEndpoint(payload: { ocr_ingredients: string[], off_ingredients: string[] }) {
+  // Determine Backend URL
+  const backendUrl = Deno.env.get('PADDLE_OCR_URL')?.replace('/ocr', '') || 'http://host.docker.internal:8000';
+  const validateUrl = `${backendUrl}/validate-ingredients`;
+
+  try {
+    console.log(`Calling Validation Backend: ${validateUrl}`);
+    const res = await fetch(validateUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      console.error(`Validation Endpoint Error: ${res.status}`);
+      return { overlap_score: 0, matches: [] };
+    }
+
+    return await res.json();
+  } catch (e) {
+    console.error("Validation Call Failed:", e);
+    return { overlap_score: 0, matches: [] };
+  }
+}
+
 function inferProductName(lines: OCRLine[]): string | null {
   if (!lines || lines.length === 0) return null;
 
@@ -379,26 +500,18 @@ function inferProductName(lines: OCRLine[]): string | null {
   return cleanName.length > 3 ? cleanName : null;
 }
 
+// Deprecated in favor of searchOpenFoodFacts
 async function fetchOpenFoodFactsData(name: string): Promise<any | null> {
-  try {
-    const url = `${OPEN_FOOD_FACTS_API_URL}?search_terms=${encodeURIComponent(name)}&search_simple=1&action=process&json=1&page_size=1`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    if (data.products && data.products.length > 0) {
-      const p = data.products[0];
-      return {
-        product_name: p.product_name,
-        brands: p.brands,
-        categories: p.categories,
-        nutriscore: p.nutriscore_grade,
-        ingredients_text: p.ingredients_text
-      };
-    }
-    return null;
-  } catch (e) {
-    console.error("OFF Fetch Error:", e);
-    return null;
+  const products = await searchOpenFoodFacts(name);
+  if (products.length > 0) {
+    const p = products[0];
+    return {
+      product_name: p.product_name,
+      brands: p.brands,
+      categories: p.categories,
+      nutriscore: p.nutriscore_grade,
+      ingredients_text: p.ingredients_text
+    };
   }
+  return null;
 }

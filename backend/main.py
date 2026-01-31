@@ -42,6 +42,8 @@ def get_user_profile(user_id: str) -> Optional[Dict]:
         print(f"Error fetching profile: {e}")
         return None
 
+from rapidfuzz import process, fuzz
+
 app = FastAPI()
 
 # Enable CORS
@@ -52,6 +54,44 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class IngredientValidationRequest(BaseModel):
+    ocr_ingredients: List[str]
+    off_ingredients: List[str]
+
+@app.post("/validate-ingredients")
+def validate_ingredients(request: IngredientValidationRequest):
+    if not request.ocr_ingredients or not request.off_ingredients:
+        return {"overlap_score": 0.0, "matches": []}
+    
+    matches = []
+    # Pre-process OFF ingredients (target)
+    off_processed = [i.lower() for i in request.off_ingredients]
+    
+    match_count = 0
+    valid_ocr_count = 0
+    
+    for ing in request.ocr_ingredients:
+        ing = ing.lower().strip()
+        if len(ing) < 3: 
+            continue
+        valid_ocr_count += 1
+        
+        # Use WRatio for flexible matching (handles partials, ordering)
+        result = process.extractOne(ing, off_processed, scorer=fuzz.WRatio)
+        if result:
+            match_txt, score, idx = result
+            if score >= 85: # High confidence match threshold
+                match_count += 1
+                matches.append({"ocr": ing, "off": match_txt, "score": score})
+    
+    overlap_score = match_count / valid_ocr_count if valid_ocr_count > 0 else 0.0
+    
+    return {
+        "overlap_score": round(overlap_score, 2), 
+        "matches": matches,
+        "valid_ocr_count": valid_ocr_count
+    }
 
 # Data models
 class Ingredient(BaseModel):
