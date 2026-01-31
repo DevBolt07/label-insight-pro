@@ -36,6 +36,7 @@ export interface OCRResult {
   contradictions: string[];
   categorizedText?: CategorizedText;
   rawText?: string;
+  structuredText?: string;
   ocrSource?: string;
 }
 
@@ -104,6 +105,7 @@ class OCRService {
           miscellaneous: []
         },
         rawText: data.raw_text,
+        structuredText: data.meta?.structured_text,
         ocrSource: data.meta?.ocr_source || 'Unknown'
       };
     } catch (error) {

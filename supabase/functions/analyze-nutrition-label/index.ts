@@ -74,6 +74,7 @@ serve(async (req) => {
       : "OCR OUTPUT (RAW TEXT - NO LAYOUT DETECTED):";
 
     console.log("Sending to Gemini...");
+    console.log("LLM Payload Preview (Structured):", tableStructure.substring(0, 500) + "...");
 
     // --- 4. CALL GEMINI ---
     if (!GEMINI_API_KEY) throw new Error("No Gemini API Key provided");
@@ -144,7 +145,8 @@ JSON Schema:
     // Attach debug info
     finalJson.meta = {
       ocr_source: ocrResult.source,
-      ocr_lines_count: ocrResult.lines.length
+      ocr_lines_count: ocrResult.lines.length,
+      structured_text: tableStructure // Pass the exact structured text used for LLM
     };
     finalJson.raw_text = ocrResult.raw_text; // Backward compatibility
 

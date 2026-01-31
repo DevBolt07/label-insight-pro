@@ -49,6 +49,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
   const [alternativesLoading, setAlternativesLoading] = useState(false);
   const [fullUserProfile, setFullUserProfile] = useState<any>(null);
   const [isRawTextOpen, setIsRawTextOpen] = useState(false);
+  const [isStructuredTextOpen, setIsStructuredTextOpen] = useState(false);
 
   // Fetch full user profile ONCE and cache it for all uses
   useEffect(() => {
@@ -712,6 +713,100 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
                   </div>
                 </CollapsibleContent>
               </Collapsible>
+            )}
+
+            {/* Structured OCR Data (AI Input) */}
+            {isOCRResult && ocrResult?.structuredText && (
+              <Collapsible
+                open={isStructuredTextOpen}
+                onOpenChange={setIsStructuredTextOpen}
+                className="w-full border rounded-lg bg-indigo-50/50 dark:bg-indigo-950/10 mt-2"
+              >
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-indigo-500" />
+                    <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">Structured Text (AI Input)</span>
+                  </div>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-8 h-8 p-0">
+                      {isStructuredTextOpen ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      <span className="sr-only">Toggle</span>
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4 pt-0">
+                    <p className="text-[10px] text-muted-foreground mb-2">
+                      This is the exact structured payload sent to the LLM to prevent hallucination.
+                    </p>
+                    <pre className="text-xs font-mono bg-indigo-100/50 dark:bg-indigo-900/20 p-3 rounded-md overflow-x-auto whitespace-pre-wrap max-h-[200px] border border-indigo-200 dark:border-indigo-800 select-text">
+                      {ocrResult.structuredText}
+                    </pre>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            {/* Visual OCR Result Display */}
+            {isOCRResult && (
+              <div className="mt-8 space-y-4 animate-fade-in">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge variant="secondary" className="bg-muted text-muted-foreground hover:bg-muted">
+                    Derived from OCR (not barcode)
+                  </Badge>
+                </div>
+
+                {/* OCR Nutrition Card */}
+                <Card className="card-material p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <h3 className="text-lg font-semibold">Nutrition Facts</h3>
+                  </div>
+
+                  <div className="space-y-0 text-sm border rounded-xl overflow-hidden divide-y">
+                    {[
+                      { l: 'Energy', v: ocrResult?.nutritionData?.calories, u: 'kcal', i: <Flame className="h-4 w-4 text-orange-500" /> },
+                      { l: 'Fat', v: ocrResult?.nutritionData?.fat, u: 'g', i: <Droplet className="h-4 w-4 text-yellow-500" /> },
+                      { l: 'Carbohydrates', v: ocrResult?.nutritionData?.carbohydrates, u: 'g', i: <Zap className="h-4 w-4 text-blue-500" /> },
+                      { l: 'Sugars', v: ocrResult?.nutritionData?.sugar, u: 'g' },
+                      { l: 'Fiber', v: ocrResult?.nutritionData?.fiber, u: 'g' },
+                      { l: 'Protein', v: ocrResult?.nutritionData?.protein, u: 'g' },
+                      { l: 'Sodium', v: ocrResult?.nutritionData?.sodium, u: 'g' },
+                    ].map((item, i) => (
+                      <div key={i} className="flex justify-between p-3 bg-card hover:bg-muted/50 transition-colors">
+                        <span className="text-muted-foreground flex items-center gap-2">
+                          {item.i && item.i} {item.l}
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {item.v !== undefined ? `${item.v}${item.u}` : '-'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* OCR Ingredients Card */}
+                <Card className="card-material p-5">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Package className="h-4 w-4 text-green-600 dark:text-green-400" /> Ingredients
+                  </h3>
+                  {ocrResult?.ingredients && ocrResult.ingredients.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {ocrResult.ingredients.map((ing, i) => (
+                        <Badge key={i} variant="secondary" className="font-normal text-sm py-1 px-2.5 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30">
+                          {ing}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No ingredients detected.</p>
+                  )}
+                </Card>
+              </div>
             )}
           </TabsContent>
 
