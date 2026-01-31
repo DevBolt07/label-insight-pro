@@ -16,7 +16,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Share, Bookmark, ExternalLink, AlertTriangle, CheckCircle, XCircle, Camera, FileText, Eye, MessageCircle, Sparkles, Package, MapPin, Factory, Info, Leaf, Calendar, Globe, Droplet, Flame, Zap, HelpCircle, Calculator, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductData } from "@/services/openFoodFacts";
@@ -48,13 +48,14 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
   const [alternativesLoading, setAlternativesLoading] = useState(false);
   const [fullUserProfile, setFullUserProfile] = useState<any>(null);
 
-  // Fetch full user profile for chatbot
+  // Fetch full user profile ONCE and cache it for all uses
   useEffect(() => {
+    let isMounted = true;
     const fetchUserProfile = async () => {
-      if (!user?.id) return;
+      if (!user?.id || fullUserProfile) return; // Skip if already fetched
       try {
         const profile = await profileService.getProfile(user.id);
-        if (profile) {
+        if (isMounted && profile) {
           setFullUserProfile({
             ...profile,
             email: user.email,
@@ -66,7 +67,8 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
       }
     };
     fetchUserProfile();
-  }, [user?.id, user?.email]);
+    return () => { isMounted = false; };
+  }, [user?.id]); // Only depend on user.id, not fullUserProfile
 
   const productData = data?.productData;
   const ocrResult = data?.ocrResult;
@@ -163,17 +165,15 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
   });
   const [loading, setLoading] = useState(false);
 
-  // Fetch claims verification on mount
+  // Fetch claims verification when user profile is ready
   useEffect(() => {
     const fetchClaims = async () => {
-      if (!productData || isOCRResult) return;
+      if (!productData || isOCRResult || !fullUserProfile) return;
 
       setClaimsLoading(true);
       try {
-        const userProfile = await profileService.getProfile(user.id);
-
         const { data, error } = await supabase.functions.invoke('verify-claims', {
-          body: { productData, userProfile }
+          body: { productData, userProfile: fullUserProfile }
         });
 
         if (error) throw error;
@@ -188,19 +188,17 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
     };
 
     fetchClaims();
-  }, [productData, user.id, isOCRResult]);
+  }, [productData, fullUserProfile, isOCRResult]);
 
-  // Fetch healthier alternatives on mount
+  // Fetch healthier alternatives when user profile is ready
   useEffect(() => {
     const fetchAlternatives = async () => {
-      if (!productData || isOCRResult) return;
+      if (!productData || isOCRResult || !fullUserProfile) return;
 
       setAlternativesLoading(true);
       try {
-        const userProfile = await profileService.getProfile(user.id);
-
         const { data, error } = await supabase.functions.invoke('suggest-alternatives', {
-          body: { productData, userProfile }
+          body: { productData, userProfile: fullUserProfile }
         });
 
         if (error) throw error;
@@ -215,7 +213,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
     };
 
     fetchAlternatives();
-  }, [productData, user.id, isOCRResult]);
+  }, [productData, fullUserProfile, isOCRResult]);
 
   // --- SCORE CALCULATION LOGIC ---
   const calculateHealthScore = (product: ProductData): number => {
@@ -827,6 +825,7 @@ export function Results({ onNavigate, user, data }: ResultsProps) {
           <SheetContent side="bottom" className="h-[80vh] rounded-t-[20px]">
             <SheetHeader className="mb-4">
               <SheetTitle>AI Health Advisor</SheetTitle>
+              <SheetDescription>Ask questions about this product's nutritional value and health impact.</SheetDescription>
             </SheetHeader>
             <HealthChatbot
               userProfile={fullUserProfile}
