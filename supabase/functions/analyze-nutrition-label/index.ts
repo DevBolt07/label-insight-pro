@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
+import { callGeminiWithFallback } from '../_shared/gemini.ts';
 
 // Configuration
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -82,23 +83,20 @@ Strict JSON:
   "confidence": number
 }`;
 
-    // Call Gemini for Identification (Lightweight call)
+    // Call Gemini for Identification (with Fallback)
     let identityResult = null;
     try {
-      const idResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: `${identityInput}\n\n${identityPrompt}` }] }],
-          generation_config: { response_mime_type: "application/json" }
-        })
-      });
-      const idJson = await idResp.json();
-      const idText = idJson.candidates?.[0]?.content?.parts?.[0]?.text;
+      const identityBody = {
+        contents: [{ role: 'user', parts: [{ text: `${identityInput}\n\n${identityPrompt}` }] }],
+        generation_config: { response_mime_type: "application/json" }
+      };
+
+      const idResult = await callGeminiWithFallback(identityBody, "Identity", GEMINI_API_KEY);
+      const idText = idResult.result.candidates?.[0]?.content?.parts?.[0]?.text;
       if (idText) identityResult = JSON.parse(idText);
-      console.log("Identity Result:", identityResult);
+      console.log(`Identity Result (Model: ${idResult.usedModel}):`, identityResult);
     } catch (e) {
-      console.warn("Identity Step Failed:", e);
+      console.warn("Identity Step Failed (All models or non-retriable error):", e);
     }
 
     // --- 4. DATA ENRICHMENT & VALIDATION ---
@@ -221,10 +219,9 @@ SCORING LOGIC (Custom OCR Score):
 - -20 if completely NO nutrition data is found (Uncertainty Penalty).
 - Max 100, Min 0.`;
 
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    let finalJson;
+    try {
+      const finalBody = {
         contents: [{
           role: 'user',
           parts: [{ text: `${inputDescription}\n${tableStructure}\n\nINFERRED PRODUCT NAME: ${inferredName || "Unknown"}${enrichmentContext}` }]
@@ -235,19 +232,45 @@ SCORING LOGIC (Custom OCR Score):
           temperature: 0.1,
           response_mime_type: "application/json"
         }
-      }),
-    });
+      };
 
-    if (!geminiResponse.ok) {
-      const err = await geminiResponse.json();
-      throw new Error(`Gemini Error: ${JSON.stringify(err)}`);
+      const finalResult = await callGeminiWithFallback(finalBody, "Final Analysis", GEMINI_API_KEY);
+      const resultText = finalResult.result.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!resultText) throw new Error("Empty response from Gemini");
+
+      finalJson = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim());
+
+      // Attach used model for debugging
+      finalJson.meta = finalJson.meta || {};
+      finalJson.meta.gemini_model = finalResult.usedModel;
+
+    } catch (err: any) {
+      console.error("Gemini Final Analysis Failed:", err);
+
+      // 7. GRACEFUL FALLBACK (If Rate Limited)
+      if (err.message && (err.message.includes("Rate limit") || err.message.includes("All Gemini models failed"))) {
+        console.log("Triggering Graceful Fallback Response...");
+        finalJson = {
+          product_name: identityResult?.predicted_product_name || inferredName || "Detected Product",
+          brand_name: identityResult?.predicted_brand || null,
+          ingredients: identityResult?.ingredients || [],
+          nutritional_info: {
+            energy_kcal: null, fat: null, saturated_fat: null, carbohydrates: null,
+            sugar: null, protein: null, sodium_mg: null
+          },
+          ocr_score: {
+            score: 0,
+            grade: "N/A",
+            explanation: "Automated analysis temporarily unavailable due to high service load. Displaying raw data.",
+            breakdown: [],
+            confidence_note: "Fallback mode active due to API rate limits."
+          },
+          fallback_mode: true
+        };
+      } else {
+        throw err; // Rethrow parsing errors or other non-rate-limit errors
+      }
     }
-
-    const geminiData = await geminiResponse.json();
-    const resultText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!resultText) throw new Error("Empty response from Gemini");
-
-    const finalJson = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim());
 
     // Attach debug info
     finalJson.meta = {
@@ -515,3 +538,5 @@ async function fetchOpenFoodFactsData(name: string): Promise<any | null> {
   }
   return null;
 }
+
+// --- FALLBACK ROUTING LOGIC MOVED TO _shared/gemini.ts ---

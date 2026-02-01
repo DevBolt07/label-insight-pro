@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callGeminiWithFallback } from '../_shared/gemini.ts';
 
 const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
@@ -120,26 +121,20 @@ serve(async (req) => {
       parts: [{ text: message }]
     });
 
-    // USE v1beta AND gemini-2.5-flash with increased token budget
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: contents,
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        generation_config: {
-          max_output_tokens: 2048,
-          temperature: 0.7
-        }
-      }),
-    });
+    // USE v1beta AND gemini-2.5-flash with increased token budget (via Fallback)
+    const geminiBody = {
+      contents: contents,
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      generation_config: {
+        max_output_tokens: 2048,
+        temperature: 0.7
+      }
+    };
 
-    const data = await response.json();
-    console.log('Gemini raw response:', JSON.stringify(data));
+    const { result: data, usedModel } = await callGeminiWithFallback(geminiBody, "Health Chat", geminiApiKey || "");
+    console.log(`Gemini response (Model: ${usedModel}):`, JSON.stringify(data));
 
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(data)}`);
-    }
+    // Response is already JSON and ok if we got here (callGeminiWithFallback checks ok)
 
     const assistantMessage = data.candidates?.[0]?.content?.parts?.[0]?.text;
     const finishReason = data.candidates?.[0]?.finishReason;

@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callGeminiWithFallback } from '../_shared/gemini.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +22,7 @@ serve(async (req) => {
 
   try {
     const { productData, userProfile } = await req.json();
-    
+
     console.log('Finding alternatives for:', productData?.name);
 
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
@@ -72,31 +73,18 @@ IMPORTANT: Suggest REAL products that exist in supermarkets. Be specific with br
 
     console.log('Sending request to Gemini...');
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 2048,
-          }
-        })
+    const geminiBody = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 2048,
       }
-    );
+    };
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const geminiData = await response.json();
+    const { result: geminiData, usedModel } = await callGeminiWithFallback(geminiBody, "Suggest Alternatives", geminiApiKey);
     const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    
-    console.log('Gemini response:', responseText);
+
+    console.log(`Gemini response (Model: ${usedModel}):`, responseText);
 
     let alternatives: Alternative[] = [];
     try {
@@ -105,7 +93,7 @@ IMPORTANT: Suggest REAL products that exist in supermarkets. Be specific with br
       if (cleanedText.startsWith('```')) cleanedText = cleanedText.slice(3);
       if (cleanedText.endsWith('```')) cleanedText = cleanedText.slice(0, -3);
       cleanedText = cleanedText.trim();
-      
+
       const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         alternatives = JSON.parse(jsonMatch[0]);
@@ -127,19 +115,24 @@ IMPORTANT: Suggest REAL products that exist in supermarkets. Be specific with br
   } catch (error) {
     console.error('Error suggesting alternatives:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     // Return fallback alternatives instead of 500 for rate limit errors
-    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+    const isRateLimit = errorMessage.includes('429') ||
+      errorMessage.includes('quota') ||
+      errorMessage.includes('rate limit') ||
+      errorMessage.includes('All Gemini models failed');
+
+    if (isRateLimit) {
       console.log('Rate limited - returning fallback alternatives');
-      return new Response(JSON.stringify({ 
+      return new Response(JSON.stringify({
         alternatives: generateFallbackAlternatives({}, ''),
         rateLimited: true
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
-    return new Response(JSON.stringify({ 
+
+    return new Response(JSON.stringify({
       error: errorMessage,
       alternatives: []
     }), {
@@ -151,7 +144,7 @@ IMPORTANT: Suggest REAL products that exist in supermarkets. Be specific with br
 
 function generateFallbackAlternatives(productData: any, categories: string): Alternative[] {
   const categoryLower = (categories || '').toLowerCase();
-  
+
   if (categoryLower.includes('chocolate') || categoryLower.includes('candy') || categoryLower.includes('sweet')) {
     return [
       {
@@ -170,7 +163,7 @@ function generateFallbackAlternatives(productData: any, categories: string): Alt
       }
     ];
   }
-  
+
   if (categoryLower.includes('noodle') || categoryLower.includes('pasta') || categoryLower.includes('instant')) {
     return [
       {
@@ -196,7 +189,7 @@ function generateFallbackAlternatives(productData: any, categories: string): Alt
       }
     ];
   }
-  
+
   // Generic healthy alternatives
   return [
     {

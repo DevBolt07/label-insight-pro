@@ -78,9 +78,6 @@ Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-trick
 Author : 
 Hemantkumar Lakhane
 Tanmay Kumnhare 
-Yash Lakhe 
-Kastauri Rasekar
-Dhanashri Khode 
 
 T r i g g e r   F i r e b a s e   d e p l o y  
  

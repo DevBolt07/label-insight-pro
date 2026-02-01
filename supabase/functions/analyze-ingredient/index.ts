@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callGeminiWithFallback } from '../_shared/gemini.ts';
 
 const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
@@ -34,29 +35,20 @@ serve(async (req) => {
       "category": "natural" | "processed" | "artificial" | "preservative" | "additive"
     }`;
 
-    // USE v1beta AND gemini-2.5-flash
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: `Analyze the ingredient: ${ingredientName}` }] }],
-        // USE snake_case FOR REST API
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        generation_config: { 
-            temperature: 0.2, 
-            response_mime_type: "application/json" 
-        }
-      }),
-    });
+    // USE v1beta AND gemini-2.5-flash (via Fallback)
+    const geminiBody = {
+      contents: [{ role: 'user', parts: [{ text: `Analyze the ingredient: ${ingredientName}` }] }],
+      // USE snake_case FOR REST API
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      generation_config: {
+        temperature: 0.2,
+        response_mime_type: "application/json"
+      }
+    };
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
-    }
-
-    const data = await response.json();
+    const { result: data, usedModel } = await callGeminiWithFallback(geminiBody, "Analyze Ingredient", geminiApiKey || "");
     const contentText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     let analysisResult;
     try {
       analysisResult = JSON.parse(contentText);
@@ -80,8 +72,33 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in analyze-ingredient function:', error);
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Graceful fallback for rate limits
+    if (errorMessage.includes('429') ||
+      errorMessage.includes('quota') ||
+      errorMessage.includes('rate limit') ||
+      errorMessage.includes('All Gemini models failed')) {
+
+      console.log('Rate limited - returning fallback analysis');
+      const fallbackResult = {
+        name: "Unknown Ingredient",
+        summary: "Detailed analysis temporarily unavailable due to high service load. Please try again later.",
+        healthEffects: [],
+        commonUses: [],
+        safetyInfo: "Unknown",
+        personalizedWarnings: [],
+        alternatives: [],
+        category: "processed"
+      };
+
+      return new Response(JSON.stringify(fallbackResult), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      error: errorMessage
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

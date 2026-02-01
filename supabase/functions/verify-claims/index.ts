@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callGeminiWithFallback } from '../_shared/gemini.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,7 +20,7 @@ serve(async (req) => {
 
   try {
     const { productData, userProfile } = await req.json();
-    
+
     console.log('Verifying claims for product:', productData?.name);
     console.log('Product ingredients:', productData?.ingredients);
     console.log('Nutrition facts:', JSON.stringify(productData?.nutritionFacts));
@@ -83,30 +84,17 @@ Respond with ONLY a valid JSON array. No explanation text before or after. Examp
 
     console.log('Sending request to Gemini...');
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 2048,
-          }
-        })
+    const geminiBody = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 2048,
       }
-    );
+    };
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
+    const { result: geminiData, usedModel } = await callGeminiWithFallback(geminiBody, "Verify Claims", geminiApiKey);
+    console.log(`Gemini raw response (Model: ${usedModel}):`, JSON.stringify(geminiData));
 
-    const geminiData = await response.json();
-    console.log('Gemini raw response:', JSON.stringify(geminiData));
-    
     const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     console.log('Gemini response text:', responseText);
 
@@ -125,7 +113,7 @@ Respond with ONLY a valid JSON array. No explanation text before or after. Examp
         cleanedText = cleanedText.slice(0, -3);
       }
       cleanedText = cleanedText.trim();
-      
+
       const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         claims = JSON.parse(jsonMatch[0]);
@@ -151,20 +139,26 @@ Respond with ONLY a valid JSON array. No explanation text before or after. Examp
   } catch (error) {
     console.error('Error verifying claims:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     // Return fallback claims instead of 500 for rate limit errors
-    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+    // Check for "All Gemini models failed" (custom) or "429"/"quota" (standard)
+    const isRateLimit = errorMessage.includes('429') ||
+      errorMessage.includes('quota') ||
+      errorMessage.includes('rate limit') ||
+      errorMessage.includes('All Gemini models failed');
+
+    if (isRateLimit) {
       console.log('Rate limited - returning fallback claims');
       const { productData } = await req.json().catch(() => ({ productData: null }));
-      return new Response(JSON.stringify({ 
+      return new Response(JSON.stringify({
         claims: generateFallbackClaims(productData || {}),
         rateLimited: true
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
-    return new Response(JSON.stringify({ 
+
+    return new Response(JSON.stringify({
       error: errorMessage,
       claims: []
     }), {
@@ -179,7 +173,7 @@ function generateFallbackClaims(productData: any): ClaimVerification[] {
   const nutritionFacts = productData?.nutritionFacts || {};
   const ingredients = (productData?.ingredients || '').toLowerCase();
   const additives = productData?.additives || [];
-  
+
   // Sugar claim
   const sugarValue = parseFloat(nutritionFacts.sugars || nutritionFacts.sugar || '0');
   if (!isNaN(sugarValue)) {
@@ -192,7 +186,7 @@ function generateFallbackClaims(productData: any): ClaimVerification[] {
     } else if (sugarValue > 0.5) {
       claims.push({
         claim: "Low Sugar",
-        status: "misleading", 
+        status: "misleading",
         reason: `Contains ${sugarValue}g sugar - moderate amount`
       });
     } else {
@@ -203,7 +197,7 @@ function generateFallbackClaims(productData: any): ClaimVerification[] {
       });
     }
   }
-  
+
   // Natural/Artificial claim
   if (additives.length > 0) {
     claims.push({
@@ -218,7 +212,7 @@ function generateFallbackClaims(productData: any): ClaimVerification[] {
       reason: "No artificial additives detected in ingredients"
     });
   }
-  
+
   // Vegetarian check
   const nonVegIndicators = ['meat', 'chicken', 'beef', 'pork', 'fish', 'gelatin', 'lard'];
   const isNonVeg = nonVegIndicators.some(item => ingredients.includes(item));
@@ -227,7 +221,7 @@ function generateFallbackClaims(productData: any): ClaimVerification[] {
     status: isNonVeg ? "false" : "verified",
     reason: isNonVeg ? "Contains non-vegetarian ingredients" : "No meat or fish ingredients detected"
   });
-  
+
   // Processing level
   const novaGroup = productData?.nova_group;
   if (novaGroup) {
@@ -245,6 +239,6 @@ function generateFallbackClaims(productData: any): ClaimVerification[] {
       });
     }
   }
-  
+
   return claims;
 }
