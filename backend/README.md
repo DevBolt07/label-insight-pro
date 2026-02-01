@@ -1,51 +1,48 @@
+# NutriSense - OCR & Text Extraction Service
 
+This is the dedicated OCR backend for **NutriSense**, responsible exclusively for extracting and structuring text from food label images. It utilizes **PaddleOCR** to perform high-accuracy text detection on product packaging.
 
-# Label Insight Pro – Backend API
+## 🔗 Integration
 
-This is the Python backend for **Label Insight Pro**, providing OCR analysis using PaddleOCR and product analysis via Open Food Facts.
+This OCR service is used by NutriSense’s **Supabase Edge Functions** to:
+- Perform reasoning via LLMs (Gemini).
+- Validate and post-process structured OCR output.
+- Enrich product data using Open Food Facts.
+- Generate user-specific health insights.
 
 ---
 
 ## 🚀 Features
 
-- **PaddleOCR Integration**  
-  Extract text from product package images.
-
-- **Intelligent Text Categorization**  
-  Automatically categorizes detected text into:
+- **PaddleOCR Integration**: Robust text extraction from complex, curved, or shiny packaging.
+- **Rule-based Text Structuring**: Automatically categorizes raw OCR output into:
   - Brand Name
   - Marketing Slogans
-  - Marketing Claims
   - Nutrition Facts
+  - Ingredient Lists
   - Miscellaneous Text
-
-- **Ingredient Extraction**  
-  Identifies and extracts ingredient lists.
-
-- **Product Analysis**  
-  Analyze products by barcode using Open Food Facts API.
-
-- **User Personalization**  
-  Optional user profile integration for allergies and medical conditions.
+- **Ingredient Parsing**: Specialized logic to identify, clean, and extract ingredient blocks from raw text.
 
 ---
 
 ## ⚙️ Setup Instructions
 
-### 1. Install Dependencies
+### 1. Prerequisites
+- **Python 3.11** (Required)
+- **PaddleOCR** requirements
+
+### 2. Install Dependencies
 
 ```bash
 cd backend
+python -m venv venv
+# Activate venv (Windows: .\venv\Scripts\activate, Mac/Linux: source venv/bin/activate)
 pip install -r requirements.txt
 ```
 
-> **Note:**
-> - `opencv-python` version must be compatible with PaddleOCR (`<=4.6.0`)
-> - Supabase client version should be `supabase-py==2.23.0` or the latest stable release
+**Sample `requirements.txt` for Python 3.11:**
 
-**Sample `requirements.txt` for Python 3.13:**
-
-```
+```text
 fastapi==0.104.1
 uvicorn==0.24.0
 requests==2.31.0
@@ -55,37 +52,20 @@ pydantic>=2.6.0
 pillow==11.0.0
 pytesseract==0.3.13
 opencv-python<=4.6.0.66
-supabase-py==2.23.0
 paddleocr==2.7.3
 paddlepaddle==2.6.0
 ```
 
----
-
-### 2. Run the Server
+### 3. Run the Server
 
 ```bash
 uvicorn main:app --reload
 ```
+The server will start at `http://localhost:8000`.
 
-Server will start at:
+### 4. Health Check
 
-```
-http://localhost:8000
-```
-
----
-
-### 3. Test the API
-
-Visit:
-
-```
-http://localhost:8000/
-```
-
-You should see:
-
+Visit `http://localhost:8000/` to verify:
 ```json
 {"message": "NutriLabel Analyzer API is running"}
 ```
@@ -94,26 +74,22 @@ You should see:
 
 ## 📡 API Endpoints
 
-### 1. OCR Analysis
+### OCR Analysis
 
 #### `POST /analyze-image`
-
-- Upload an image file for OCR analysis  
-- Content-Type: `multipart/form-data`  
-- Body: `file` (image file)
+- **Description**: Upload a raw image file for text extraction and structuring.
+- **Content-Type**: `multipart/form-data`
+- **Body**: `file` (image binary)
 
 #### `POST /analyze-image-base64`
+- **Description**: Analyze an image provided as a base64 string.
+- **Content-Type**: `application/json`
+- **Body**:
+  ```json
+  { "image": "base64_string_here" }
+  ```
 
-- Analyze image from a base64 string  
-- Content-Type: `application/json`  
-- Body:
-
-```json
-{ "image": "base64_string_here" }
-```
-
-**Sample Response:**
-
+**Response Format:**
 ```json
 {
   "success": true,
@@ -126,199 +102,35 @@ You should see:
     "miscellaneous": ["Other text"]
   },
   "raw_text": "Full extracted text",
-  "confidence": 95.5
+  "confidence": 95.5 // OCR engine confidence score
 }
 ```
-
----
-
-### 2. Product Analysis
-
-#### `POST /analyze-product`
-
-Analyze product by barcode.
-
-**Body:**
-
-```json
-{
-  "barcode": "123456789",
-  "user_id": "optional_user_id"
-}
-```
-
-> If `user_id` is provided, personalized recommendations based on allergies/medical conditions are returned.
-
----
-
-### 3. Product Search
-
-#### `GET /search-product/{product_name}`
-
-Search Open Food Facts database by product name.  
-Returns top 10 matches.
 
 ---
 
 ## 🧠 Technical Details
 
 ### PaddleOCR Configuration
-
-- Language: English (`en`)
-- Angle Classification: Enabled
-- Logging: Disabled (for cleaner output)
-
----
+- **Language**: English (`en`)
+- **Angle Classification**: Enabled for rotated labels.
+- **Heuristics**: Optimized for packaging text density.
 
 ### Text Categorization Logic
-
-- **Brand Name**: Uppercase text with high confidence at top of image  
-- **Slogans**: Text containing exclamation marks or marketing phrases  
-- **Marketing Text**: Contains words like "natural", "organic", "premium"  
-- **Nutrition Facts**: Contains nutrition keywords like "calories", "protein", etc.  
-- **Miscellaneous**: Everything else
-
----
-
-### Ingredient Extraction
-
-- Looks for patterns like `Ingredients:` followed by comma-separated list  
-- Removes percentages, cleans text, and capitalizes ingredient names
-
----
-
-### CORS Configuration
-
-For development, all origins are allowed:
-
-```python
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-```
-
-For production, restrict `allow_origins` to your frontend domain.
-
----
-
-## 📦 Requirements
-
-- Python 3.8+ (Python 3.13 confirmed)
-- FastAPI
-- PaddleOCR
-- PaddlePaddle
-- PIL (Pillow)
-- NumPy
-- pytesseract
-- OpenCV (compatible version)
-- supabase-py
+The backend applies heuristic rules to structure the unstructured OCR output:
+- **Brand Name**: Detected via position (top) and confidence/size.
+- **Ingredients**: Extracted using regex patterns scanning for "Ingredients:" markers.
+- **Nutrition Facts**: Identified by keywords like "Calories", "Total Fat", "Protein".
 
 ---
 
 ## 🛠️ Troubleshooting
 
-### PaddleOCR Installation Issues
+### PaddleOCR & OpenCV
+If you encounter errors related to `libgl` or `opencv`:
+- Ensure you are using `opencv-python<=4.6.0.66` as newer versions may conflict with PaddleOCR dependencies in some environments.
 
-- Ensure Python 3.8+
-- Install CPU version:
-
+### Port Conflicts
+If port 8000 is busy, run on a different port:
 ```bash
-pip install paddlepaddle==2.6.0
+uvicorn main:app --host 0.0.0.0 --port 8001
 ```
-
-- For GPU support:
-
-```bash
-pip install paddlepaddle-gpu
-```
-
----
-
-### Port Already in Use
-
-```python
-uvicorn.run(app, host="0.0.0.0", port=8001)
-```
-
----
-
-## 🧪 Development
-
-### Using uvicorn
-
-```bash
-uvicorn main:app --reload
-```
-
-Auto-reloads on code changes.
-
----
-
-### Using Shell Scripts
-
-**Unix/Mac:**
-
-```bash
-cd backend
-./start.sh
-```
-
-**Windows:**
-
-```bash
-cd backend
-start.bat
-```
-
----
-
-## 🚀 Production Deployment
-
-### Environment Configuration
-
-Update frontend `.env` with backend URL:
-
-```
-VITE_BACKEND_URL=https://your-backend-server.com
-```
-
-Restrict CORS in `main.py`:
-
-```python
-allow_origins=["https://your-frontend-domain.com"]
-```
-
----
-
-### Deployment Commands
-
-```bash
-# Uvicorn with multiple workers
-uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
-
-# Or gunicorn with uvicorn workers
-gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-```
-
----
-
-### Recommended Hosting Options
-
-- **VPS/Cloud**: AWS EC2, Google Cloud, DigitalOcean  
-- **PaaS**: Railway, Render, Heroku  
-- **Serverless**: AWS Lambda + API Gateway (requires modifications)
-
----
-
-## ✅ Health Check
-
-Root endpoint `/` returns:
-
-```json
-{"message": "NutriLabel Analyzer API is running"}
-```
-

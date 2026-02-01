@@ -120,13 +120,15 @@ In case sign-up/login fails during evaluation, you can use the following demo ac
 - **Email:** lakhanehemant@gmail.com  
 - **Password:** Pass123
 
+> This demo account is provided only for hackathon evaluation purposes.
+
 ## Demo 🎥
 - **Demo Video:** <https://youtu.be/ep9D7by4MW0?si=tIRFDuc4y9d8Mve0>
 
 ## Screenshots 📸
-![alt text](<home page hack.jpeg>)
-![alt text](<maggy barcode scan hack.jpeg>)
-![alt text](<personal info hack.jpeg>)
+![Home Page](<home page hack.jpeg>)
+![maggy barcode scan ](<maggy barcode scan hack.jpeg>)
+![personal info](<personal info hack.jpeg>)
 ![alt text](<ingredients hack.jpeg>) ![alt text](<energy hack.jpeg>) ![alt text](<additives hack.jpeg>)  ![alt text](<ocr hack rice noodle.jpeg>)    ![alt text](<history hack.jpeg>)
 
 
