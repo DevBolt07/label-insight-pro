@@ -90,11 +90,28 @@ export function Auth({ onNavigate }: AuthProps) {
       });
       
       if (error) {
-        if (error.message.includes('already registered')) {
+        const code = (error as any)?.code as string | undefined;
+        const msg = (error.message || '').toLowerCase();
+
+        if (code === 'over_email_send_rate_limit' || msg.includes('rate limit')) {
+          toast({
+            title: "Sign Up Temporarily Rate Limited",
+            description:
+              "Supabase is rate limiting confirmation emails right now. Please wait a few minutes and try again, or sign in if you already created the account.",
+            variant: "destructive",
+          });
+        } else if (error.message.includes('already registered')) {
           toast({
             title: "Account Exists",
             description: "An account with this email already exists. Please sign in instead.",
             variant: "destructive"
+          });
+        } else if (msg.includes('email not confirmed')) {
+          toast({
+            title: "Email Not Confirmed",
+            description:
+              "This account needs email confirmation before you can sign in. Please check your inbox/spam and confirm, then sign in.",
+            variant: "destructive",
           });
         } else {
           toast({
