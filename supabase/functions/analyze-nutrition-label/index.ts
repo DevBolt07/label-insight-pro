@@ -238,7 +238,20 @@ SCORING LOGIC (Custom OCR Score):
       const resultText = finalResult.result.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!resultText) throw new Error("Empty response from Gemini");
 
-      finalJson = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim());
+      // Robust JSON Extraction
+      try {
+        let cleanText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
+        // Locate first '{' and last '}' to handle potential intro/outro text
+        const firstOpen = cleanText.indexOf('{');
+        const lastClose = cleanText.lastIndexOf('}');
+        if (firstOpen !== -1 && lastClose !== -1) {
+          cleanText = cleanText.substring(firstOpen, lastClose + 1);
+        }
+        finalJson = JSON.parse(cleanText);
+      } catch (parseErr) {
+        console.error("JSON Parse Error on text:", resultText);
+        throw new Error(`JSON Parse Error: ${parseErr.message}`);
+      }
 
       // Attach used model for debugging
       finalJson.meta = finalJson.meta || {};
@@ -247,9 +260,12 @@ SCORING LOGIC (Custom OCR Score):
     } catch (err: any) {
       console.error("Gemini Final Analysis Failed:", err);
 
-      // 7. GRACEFUL FALLBACK (If Rate Limited)
-      if (err.message && (err.message.includes("Rate limit") || err.message.includes("All Gemini models failed"))) {
-        console.log("Triggering Graceful Fallback Response...");
+      // 7. GRACEFUL FALLBACK (If Rate Limited OR Malformed Output)
+      const isRateLimit = err.message && (err.message.includes("Rate limit") || err.message.includes("All Gemini models failed"));
+      const isParseError = err.message && (err.message.includes("JSON Parse Error") || err.message.includes("SyntaxError"));
+
+      if (isRateLimit || isParseError) {
+        console.log("Triggering Graceful Fallback Response (Reason: " + (isRateLimit ? "Rate Limit" : "Parse Error") + ")...");
         finalJson = {
           product_name: identityResult?.predicted_product_name || inferredName || "Detected Product",
           brand_name: identityResult?.predicted_brand || null,
