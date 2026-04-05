@@ -12,6 +12,7 @@ import { History } from "./pages/History";
 import { Auth } from "./pages/Auth";
 import { Settings } from "./pages/Settings";
 import { Onboarding } from "./pages/Onboarding";
+import { ResetPassword } from "./pages/ResetPassword";
 import { useAuth } from "./hooks/useAuth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useProductAnalysis } from "./hooks/useProductAnalysis";
