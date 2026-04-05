@@ -91,7 +91,7 @@ Strict JSON:
         generation_config: { response_mime_type: "application/json" }
       };
 
-      const idResult = await callGeminiWithFallback(identityBody, "Identity", GEMINI_API_KEY);
+      const idResult = await callGeminiWithFallback(identityBody, "Identity", GEMINI_API_KEY ?? '');
       const idText = idResult.result.candidates?.[0]?.content?.parts?.[0]?.text;
       if (idText) identityResult = JSON.parse(idText);
       console.log(`Identity Result (Model: ${idResult.usedModel}):`, identityResult);
@@ -250,7 +250,7 @@ SCORING LOGIC (Custom OCR Score):
         finalJson = JSON.parse(cleanText);
       } catch (parseErr) {
         console.error("JSON Parse Error on text:", resultText);
-        throw new Error(`JSON Parse Error: ${parseErr.message}`);
+        throw new Error(`JSON Parse Error: ${(parseErr as Error).message}`);
       }
 
       // Attach used model for debugging

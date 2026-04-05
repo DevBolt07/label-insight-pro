@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, EyeOff, LogIn, UserPlus, Shield, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, LogIn, UserPlus, Shield, Loader2, ArrowLeft, Mail } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthProps {
   onNavigate: (page: string) => void;
@@ -16,6 +17,9 @@ interface AuthProps {
 export function Auth({ onNavigate }: AuthProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -139,6 +143,90 @@ export function Auth({ onNavigate }: AuthProps) {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } else {
+        setForgotSent(true);
+        toast({ title: 'Email Sent', description: 'Check your inbox for a password reset link.' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'An unexpected error occurred.', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Forgot password sub-view
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+        <MobileHeader title="Reset Password" subtitle="We'll send you a reset link" />
+        <div className="px-4 py-8 max-w-md mx-auto space-y-6 animate-fade-in">
+          <Card className="card-material border border-border/30 shadow-lg p-6">
+            {forgotSent ? (
+              <div className="text-center space-y-4 py-4">
+                <Mail className="h-12 w-12 mx-auto text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Check Your Email</h2>
+                <p className="text-sm text-muted-foreground">
+                  We sent a password reset link to <strong>{forgotEmail}</strong>. Click the link in the email to set a new password.
+                </p>
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() => { setShowForgotPassword(false); setForgotSent(false); }}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Back to Sign In
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="space-y-5">
+                <div className="space-y-2.5">
+                  <Label htmlFor="forgot-email" className="text-sm font-medium">Email Address</Label>
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
+                    className="h-12 rounded-xl border-border/50 focus:border-primary transition-all duration-300 text-base"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full h-12 bg-gradient-primary text-primary-foreground rounded-xl font-semibold shadow-lg"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Sending…</>
+                  ) : (
+                    <><Mail className="h-5 w-5 mr-2" /> Send Reset Link</>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => setShowForgotPassword(false)}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Back to Sign In
+                </Button>
+              </form>
+            )}
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <MobileHeader 
@@ -217,6 +305,17 @@ export function Auth({ onNavigate }: AuthProps) {
                       {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                     </Button>
                   </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-sm text-primary px-0 h-auto font-medium"
+                    onClick={() => { setShowForgotPassword(true); setForgotEmail(formData.email); }}
+                  >
+                    Forgot password?
+                  </Button>
                 </div>
 
                 <Button 

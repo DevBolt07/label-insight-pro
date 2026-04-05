@@ -12,6 +12,7 @@ import { History } from "./pages/History";
 import { Auth } from "./pages/Auth";
 import { Settings } from "./pages/Settings";
 import { Onboarding } from "./pages/Onboarding";
+import { ResetPassword } from "./pages/ResetPassword";
 import { useAuth } from "./hooks/useAuth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useProductAnalysis } from "./hooks/useProductAnalysis";
@@ -25,16 +26,7 @@ const App = () => {
   const [currentPage, setCurrentPage] = useState("home");
   const [pageData, setPageData] = useState<any>(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
-  
-  // Use the product analysis hook
   const { analyzeProduct, loading: analysisLoading } = useProductAnalysis();
-
-  // Check if user has completed onboarding
-  useEffect(() => {
-    if (user) {
-      checkOnboardingStatus();
-    }
-  }, [user]);
 
   const checkOnboardingStatus = async () => {
     try {
@@ -43,7 +35,6 @@ const App = () => {
         .select('onboarding_completed')
         .eq('user_id', user?.id)
         .maybeSingle();
-
       if (error) throw error;
       setOnboardingCompleted(data?.onboarding_completed ?? false);
     } catch (error) {
@@ -51,6 +42,27 @@ const App = () => {
       setOnboardingCompleted(false);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      checkOnboardingStatus();
+    }
+  }, [user]);
+
+  // Handle /reset-password route — checked after all hooks
+  const isResetPasswordRoute = window.location.pathname === '/reset-password' || window.location.hash.includes('type=recovery');
+  if (isResetPasswordRoute) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <ResetPassword />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
 
   const handleOnboardingComplete = () => {
     setOnboardingCompleted(true);
