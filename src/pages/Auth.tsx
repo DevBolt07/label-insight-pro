@@ -17,6 +17,9 @@ interface AuthProps {
 export function Auth({ onNavigate }: AuthProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
