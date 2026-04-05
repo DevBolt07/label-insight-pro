@@ -22,6 +22,22 @@ const queryClient = new QueryClient();
 
 const App = () => {
   const { user, loading } = useAuth();
+
+  // Handle /reset-password route
+  const isResetPasswordRoute = window.location.pathname === '/reset-password' || window.location.hash.includes('type=recovery');
+  if (isResetPasswordRoute) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <ResetPassword />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  const
   const [activeTab, setActiveTab] = useState("home");
   const [currentPage, setCurrentPage] = useState("home");
   const [pageData, setPageData] = useState<any>(null);
