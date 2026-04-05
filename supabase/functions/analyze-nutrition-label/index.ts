@@ -250,7 +250,7 @@ SCORING LOGIC (Custom OCR Score):
         finalJson = JSON.parse(cleanText);
       } catch (parseErr) {
         console.error("JSON Parse Error on text:", resultText);
-        throw new Error(`JSON Parse Error: ${parseErr.message}`);
+        throw new Error(`JSON Parse Error: ${(parseErr as Error).message}`);
       }
 
       // Attach used model for debugging
