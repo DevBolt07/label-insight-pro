@@ -223,6 +223,17 @@ export function Auth({ onNavigate }: AuthProps) {
                   </div>
                 </div>
 
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-sm text-primary px-0 h-auto font-medium"
+                    onClick={() => { setShowForgotPassword(true); setForgotEmail(formData.email); }}
+                  >
+                    Forgot password?
+                  </Button>
+                </div>
+
                 <Button 
                   type="submit" 
                   className="w-full h-12 bg-gradient-primary text-primary-foreground rounded-xl font-semibold shadow-lg hover:shadow-xl hover-lift transition-all duration-300 mt-2"
