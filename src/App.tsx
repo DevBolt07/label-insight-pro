@@ -63,21 +63,6 @@ const App = () => {
     );
   }
 
-  const checkOnboardingStatus = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('onboarding_completed')
-        .eq('user_id', user?.id)
-        .maybeSingle();
-
-      if (error) throw error;
-      setOnboardingCompleted(data?.onboarding_completed ?? false);
-    } catch (error) {
-      console.error('Error checking onboarding status:', error);
-      setOnboardingCompleted(false);
-    }
-  };
 
   const handleOnboardingComplete = () => {
     setOnboardingCompleted(true);
