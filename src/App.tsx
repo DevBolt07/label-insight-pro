@@ -28,6 +28,27 @@ const App = () => {
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
   const { analyzeProduct, loading: analysisLoading } = useProductAnalysis();
 
+  const checkOnboardingStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+      if (error) throw error;
+      setOnboardingCompleted(data?.onboarding_completed ?? false);
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      setOnboardingCompleted(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      checkOnboardingStatus();
+    }
+  }, [user]);
+
   // Handle /reset-password route — checked after all hooks
   const isResetPasswordRoute = window.location.pathname === '/reset-password' || window.location.hash.includes('type=recovery');
   if (isResetPasswordRoute) {
@@ -41,13 +62,6 @@ const App = () => {
       </QueryClientProvider>
     );
   }
-
-  // Check if user has completed onboarding
-  useEffect(() => {
-    if (user) {
-      checkOnboardingStatus();
-    }
-  }, [user]);
 
   const checkOnboardingStatus = async () => {
     try {
