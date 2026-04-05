@@ -22,8 +22,13 @@ const queryClient = new QueryClient();
 
 const App = () => {
   const { user, loading } = useAuth();
+  const [activeTab, setActiveTab] = useState("home");
+  const [currentPage, setCurrentPage] = useState("home");
+  const [pageData, setPageData] = useState<any>(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
+  const { analyzeProduct, loading: analysisLoading } = useProductAnalysis();
 
-  // Handle /reset-password route
+  // Handle /reset-password route — checked after all hooks
   const isResetPasswordRoute = window.location.pathname === '/reset-password' || window.location.hash.includes('type=recovery');
   if (isResetPasswordRoute) {
     return (
@@ -36,15 +41,6 @@ const App = () => {
       </QueryClientProvider>
     );
   }
-
-  const
-  const [activeTab, setActiveTab] = useState("home");
-  const [currentPage, setCurrentPage] = useState("home");
-  const [pageData, setPageData] = useState<any>(null);
-  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
-  
-  // Use the product analysis hook
-  const { analyzeProduct, loading: analysisLoading } = useProductAnalysis();
 
   // Check if user has completed onboarding
   useEffect(() => {
